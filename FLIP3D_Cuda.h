@@ -105,13 +105,10 @@ public:		//Initialize
 	void WaterDropTest(void);
 	void DamBreakTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
-	void ComputeWallNormal(void);
 
 public:		//Simulation
-	void ComputeDensity_kernel();
-	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void SolvePICFLIP_kernel();
-	void AdvectParticle_kernel(REAL dt);
+	void TransferToGrid_kernel(void);
+
 
 public:	//Hash
 	void SetHashTable_kernel(void);

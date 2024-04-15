@@ -272,63 +272,6 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 	}
 }
 
-void FLIP3D_Cuda::ComputeWallNormal()
-{
-	for (int i = 0; i < _numParticles; i++)
-	{
-		if (h_Type[i] == WALL)
-		{
-			if (h_CurPos[i].x <= 1.1 * _wallThick) {
-				h_Normal[i].x = 1.0;
-			}
-			if (h_CurPos[i].x >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].x = -1.0;
-			}
-			if (h_CurPos[i].y <= 1.1 * _wallThick) {
-				h_Normal[i].y = 1.0;
-			}
-			if (h_CurPos[i].y >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].y = -1.0;
-			}
-			if (h_CurPos[i].z <= 1.1 * _wallThick) {
-				h_Normal[i].z = 1.0;
-			}
-			if (h_CurPos[i].z >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].z = -1.0;
-			}
-		}
-	}
-}
-
-void FLIP3D_Cuda::ComputeDensity_kernel()
-{
-	ComputeDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens, d_Flag());
-}
-
-void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
-{
-	CompExternlaForce_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
-}
-
-void FLIP3D_Cuda::SolvePICFLIP_kernel()
-{
-	TrasnferToGrid_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Vel(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles);
-	
-	MarkWater_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
-
-	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
-}
-
-void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
-{
-	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
-		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _numParticles, dt);
-}
-
 
 void FLIP3D_Cuda::SetHashTable_kernel(void)
 {

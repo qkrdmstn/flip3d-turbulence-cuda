@@ -19,15 +19,22 @@ using namespace std;
 
 __host__ __device__
 struct VolumeCollection {
-	VolumeData vel;
-	VolumeData velSave;
 	VolumeData content;
-	VolumeData levelSet;
-	VolumeData press;
+	VolumeData pressure;
+	VolumeData fluidIndex;
 	VolumeData divergence;
-	VolumeData pre;
+	VolumeData particleCount;
 
-	VolumeData wallNormal;
+	VolumeData velocityAccumWeight;
+	VolumeData hasVelocity;
+
+	VolumeData velocity;
+	VolumeData newVelocity;
+
+	VolumeData volumeFractions;
+	VolumeData newVolumeFractions;
+
+	VolumeData density;
 };
 
 class FLIPGRID
