@@ -21,11 +21,12 @@ __host__ __device__
 struct VolumeCollection {
 	VolumeData vel;
 	VolumeData velSave;
+	VolumeData hasVel;
+
 	VolumeData content;
 	VolumeData levelSet;
 	VolumeData press;
 	VolumeData divergence;
-	VolumeData pre;
 
 	VolumeData wallNormal;
 };

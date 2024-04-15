@@ -74,6 +74,7 @@ public:
 	FLIPGRID* _grid;
 
 public:
+	uint iterations = 10;
 	uint _numParticles;
 	uint _gridRes;
 
@@ -108,9 +109,20 @@ public:		//Initialize
 	void ComputeWallNormal(void);
 
 public:		//Simulation
-	void ComputeDensity_kernel();
+	void ComputeDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void SolvePICFLIP_kernel();
+	void ComputeDivergence_kernel(void);
+	void TrasnferToGrid_kernel(void);
+	void MarkWater_kernel(void);
+	void EnforceBoundary_kernel(void);
+
+	void SolvePICFLIP(void);
+	void SolvePressureJacobi_kernel(void);
+	void ComputeVelocityWithPress_kernel(void);
+	void ExtrapolateVelocity_kernel(void);
+	void SubtarctGrid_kernel(void);
+	void TrasnferToParticle_kernel(void);
+
 	void AdvectParticle_kernel(REAL dt);
 
 public:	//Hash

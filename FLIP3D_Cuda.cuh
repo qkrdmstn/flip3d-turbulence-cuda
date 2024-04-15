@@ -1,4 +1,5 @@
 #include "FLIP3D_Cuda.h"
+#include <cmath>
 #include<stdio.h>
 #include <cooperative_groups.h>
 
@@ -68,9 +69,14 @@ __global__ void ComputeDensity_D(REAL3* pos, uint* type, REAL* dens, REAL* mass,
 						continue;
 					
 					REAL3 dist = pos[sortedIdx] - pos[idx];
-
-
 					REAL d2 = LengthSquared(dist);
+
+					//if (idx == 1234)
+					//{
+					//	flag[sortedIdx] = true;
+					//	flag[idx] = true;
+					//}
+
 					REAL w = mass[sortedIdx] * SmoothKernel(d2, 4.0 * densVal / gridRes);
 					wsum += w;
 				}
@@ -91,6 +97,9 @@ __global__ void CompExternlaForce_D(REAL3* pos, REAL3* vel, REAL3 gravity, REAL3
 	v += ext * dt;
 	vel[idx] = v;
 }
+
+
+
 
 __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* vel, uint* type, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles)
 {
@@ -245,79 +254,7 @@ __global__ void EnforceBoundary_D(VolumeCollection volumes, uint gridRes)
 	volumes.vel.writeSurface<REAL4>(velocity, x, y, z);
 }
 
-__device__ void FlipDiv(VolumeCollection volumes, int3 gridPos)
-{
-	REAL div = volumes.divergence.readSurface<REAL>(gridPos.x, gridPos.y, gridPos.z);
-	volumes.divergence.writeSurface<REAL>(-1 * div, gridPos.x, gridPos.y, gridPos.z);
-}
-
-__device__ REAL A_ref(VolumeCollection volumes, int3 gridPos, int3 gridPos2, uint gridRes)
-{
-	uint content = volumes.content.readSurface<uint>(gridPos.x, gridPos.y, gridPos.z);
-	uint content2 = volumes.content.readSurface<uint>(gridPos2.x, gridPos2.y, gridPos2.z);
-
-	if (gridPos.x<0 || gridPos.x>gridRes - 1 || gridPos.y<0 || gridPos.y>gridRes - 1 || gridPos.z<0 || gridPos.z>gridRes - 1 || content != FLUID) return 0.0;
-	if (gridPos2.x<0 || gridPos2.x>gridRes - 1 || gridPos2.y<0 || gridPos2.y>gridRes - 1 || gridPos2.z<0 || gridPos2.z>gridRes - 1 || content2 != FLUID) return 0.0;
-	return -1.0;
-}
-
-__device__ REAL P_ref(VolumeCollection volumes, int3 gridPos, uint gridRes)
-{
-	uint content = volumes.content.readSurface<uint>(gridPos.x, gridPos.y, gridPos.z);
-	if (gridPos.x<0 || gridPos.x>gridRes - 1 || gridPos.y<0 || gridPos.y>gridRes - 1 || gridPos.z<0 || gridPos.z>gridRes - 1 || content != CONTENT_FLUID) return 0.0;
-	return volumes.pre.readSurface<REAL>(gridPos.x, gridPos.y, gridPos.z);
-}
-
-__device__ REAL A_diag(VolumeCollection volumes, int3 gridPos, uint gridRes)
-{
-	REAL diag = 6.0;
-	uint content = volumes.content.readSurface<uint>(gridPos.x, gridPos.y, gridPos.z);
-	REAL levelSet = volumes.levelSet.readSurface<REAL>(gridPos.x, gridPos.y, gridPos.z);
-	if (content != CONTENT_FLUID) return diag;
-	
-	int3 pos[6] = { make_int3(gridPos.x - 1, gridPos.y, gridPos.z),  make_int3(gridPos.x + 1, gridPos.y, gridPos.z), make_int3(gridPos.x, gridPos.y - 1, gridPos.z), 
-					make_int3(gridPos.x, gridPos.y + 1, gridPos.z), make_int3(gridPos.x, gridPos.y, gridPos.z - 1), make_int3(gridPos.x, gridPos.y, gridPos.z + 1) };
-
-	for (int i = 0; i < 6; i++)
-	{
-		uint content2 = volumes.content.readSurface<uint>(pos[i].x, pos[i].y, pos[i].z);
-		if (pos[i].x<0 || pos[i].x>gridRes - 1 || pos[i].y<0 || pos[i].y>gridRes - 1 || pos[i].z<0 || pos[i].z>gridRes - 1 || content2 == CONTENT_WALL) diag -= 1.0;
-		else if (content2 == CONTENT_AIR)
-		{
-			REAL levelSet2 = volumes.levelSet.readSurface<REAL>(pos[i].x, pos[i].y, pos[i].z);
-			diag -= levelSet2 / min(1.0e-6f, levelSet);
-		}
-	}
-	return diag;
-}
-
-__device__ void BulidPreconditioner(VolumeCollection volumes, int3 gridPos, uint gridRes)
-{
-	REAL a = 0.25;
-	if (volumes.content.readSurface<uint>(gridPos.x, gridPos.y, gridPos.z) == CONTENT_FLUID)
-	{
-		int3 leftPos = make_int3(gridPos.x - 1, gridPos.y, gridPos.z);
-		int3 bottomPos = make_int3(gridPos.x, gridPos.y - 1, gridPos.z);
-		int3 backPos = make_int3(gridPos.x, gridPos.y, gridPos.z - 1);
-
-		REAL left = A_ref(volumes, leftPos, gridPos, gridRes) * P_ref(volumes, leftPos, gridRes);
-		REAL bottom = A_ref(volumes, bottomPos, gridPos, gridRes) * P_ref(volumes, bottomPos, gridRes);
-		REAL back = A_ref(volumes, backPos, gridPos, gridRes) * P_ref(volumes, backPos, gridRes);
-		REAL diag = A_diag(volumes, gridPos, gridRes);
-		REAL e = diag - (left * left) - (bottom * bottom) - (back * back);
-		if (e < a * diag) e = diag;
-
-		volumes.pre.writeSurface<REAL>(1.0 / sqrtf(e), gridPos.x, gridPos.y, gridPos.z);
-	}
-}
-
-__device__ void ConjugateGradient()
-{
-
-}
-
-
-__global__ void Project_D(VolumeCollection volumes, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes)
+__global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -337,28 +274,456 @@ __global__ void Project_D(VolumeCollection volumes, uint* type, REAL* dens, uint
 		REAL div = ((rightVel.x - curVel.x) + (upVel.y - curVel.y) + (frontVel.z - curVel.z)) / cellSize;
 		volumes.divergence.writeSurface<REAL>(div, x, y, z);
 	}
+}
 
-	//Compute LevelSet
-	int3 gridPos = make_int3(x, y, z);
+__global__ void ComputeLevelSet_D(VolumeCollection volumes, int3 gridPos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes)
+{
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
 	REAL levelSet = LevelSet(gridPos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes);
+
 	volumes.levelSet.writeSurface<REAL>(levelSet, x, y, z);
-
-	//Solve Pressure
-	FlipDiv(volumes, gridPos);
-	BulidPreconditioner(volumes, gridPos, gridRes);
-	ConjugateGradient();
 }
 
-
-__global__ void TrasnferToParticle()
+__global__ void SolvePressureJacobi_D(VolumeCollection volumes, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
 {
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
 
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
+	if (volumes.content.readSurface<int>(x, y, z) == CONTENT_AIR) {
+		volumes.press.writeSurface<float>(0.f, x, y, z);
+		return;
+	}
+
+	int3 cellPos = make_int3(x, y, z);
+	uint neighHash = calcGridHash(cellPos, gridRes);
+	uint startIdx = cellStart[neighHash];
+
+	REAL densSum = 0.0;
+	uint cnt = 0;
+	if (startIdx != 0xffffffff)
+	{
+		uint endIdx = cellEnd[neighHash];
+		for (uint i = startIdx; i < endIdx; i++)
+		{
+			uint sortedIdx = gridIdx[i];
+			densSum += dens[sortedIdx];
+			cnt++;
+		}
+	}
+
+	REAL thisDensity = densSum / (REAL)cnt;
+	REAL RHS = -volumes.divergence.readSurface<REAL>(x, y, z) * thisDensity;
+
+	REAL newPress = 0;
+	REAL centerCoeff = 6;
+
+	newPress += volumes.press.readTexture<REAL>(x + 1, y, z);
+	newPress += volumes.press.readTexture<REAL>(x - 1, y, z);
+	newPress += volumes.press.readTexture<REAL>(x, y + 1, z);
+	newPress += volumes.press.readTexture<REAL>(x, y - 1, z);
+	newPress += volumes.press.readTexture<REAL>(x, y, z + 1);
+	newPress += volumes.press.readTexture<REAL>(x, y, z - 1);
+
+	newPress += RHS;
+	newPress /= centerCoeff;
+	
+	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
 
-__global__ void SolvePICFLIP_D()
+__global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRes)
 {
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
 
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
+	REAL cellSize = 1.0 / gridRes;
+
+	REAL levelSet = volumes.levelSet.readSurface<REAL>(x, y, z);
+	REAL levelSetX = volumes.levelSet.readSurface<REAL>(x - 1, y, z);
+	REAL levelSetY = volumes.levelSet.readSurface<REAL>(x, y - 1, z);
+	REAL levelSetZ = volumes.levelSet.readSurface<REAL>(x, y, z - 1);
+
+	REAL4 curVel = volumes.vel.readSurface<REAL4>(x, y, z);
+	REAL4 newVel = make_REAL4(0, 0, 0, 0);
+	uint4 hasVelocity = make_uint4(0, 0, 0, 0);
+
+	if (x < gridRes && x>0) {
+		REAL press = volumes.press.readSurface<REAL>(x, y, z);
+		REAL pressX = volumes.press.readSurface<REAL>(x - 1, y, z);
+		if (levelSet * levelSetX < 0.0) {
+			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetX) * volumes.press.readSurface<REAL>(x - 1, y, z);
+			pressX = levelSetX < 0.0 ? volumes.press.readSurface<REAL>(x - 1, y, z) : levelSet / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
+		}
+		newVel.x = curVel.x - ((press - pressX) / cellSize);
+		hasVelocity.x = true;
+	}
+
+	if (y < gridRes && y>0) {
+		REAL press = volumes.press.readSurface<REAL>(x, y, z);
+		REAL pressY = volumes.press.readSurface<REAL>(x, y - 1, z);
+		if (levelSet * levelSetY < 0.0) {
+			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetY) * volumes.press.readSurface<REAL>(x, y - 1 , z);
+			pressY = levelSetY < 0.0 ? volumes.press.readSurface<REAL>(x, y - 1, z) : levelSet / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
+		}
+		newVel.y = curVel.y - ((press - pressY) / cellSize);
+		hasVelocity.y = true;
+	}
+
+	if (z < gridRes && z>0) {
+		REAL press = volumes.press.readSurface<REAL>(x, y, z);
+		REAL pressZ = volumes.press.readSurface<REAL>(x, y, z - 1);
+		if (levelSet * levelSetZ < 0.0) {
+			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetZ) * volumes.press.readSurface<REAL>(x, y, z - 1);
+			pressZ = levelSetZ < 0.0 ? volumes.press.readSurface<REAL>(x, y, z - 1) : levelSet / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
+		}
+		newVel.z = curVel.z - ((press - pressZ) / cellSize);
+		hasVelocity.z = true;
+	}
+
+	volumes.hasVel.writeSurface<uint4>(hasVelocity, x, y, z);
+	volumes.vel.writeSurface<REAL4>(newVel, x, y, z);
 }
+
+__global__ void ExtrapolateVelocity_D(VolumeCollection volumes, uint gridRes)
+{
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
+	const float epsilon = -1 + 1e-6;
+
+	uint4 thisHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z);
+	REAL4 thisNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z);
+
+	if (!thisHasVelocity.x) {
+		float sumNeighborX = 0;
+		int neighborXCount = 0;
+		if (x > 0) {
+
+			uint4 leftHasVelocity = volumes.hasVel.readSurface<uint4>(x - 1, y, z);
+			REAL4 leftNewVelocity = volumes.vel.readSurface<REAL4>(x - 1, y, z);
+			if (leftHasVelocity.x && leftNewVelocity.x > epsilon) {
+				sumNeighborX += leftNewVelocity.x;
+				neighborXCount++;
+			}
+		}
+		if (y > 0) {
+
+			uint4 downHasVelocity = volumes.hasVel.readSurface<uint4>(x, y - 1, z);
+			REAL4 downNewVelocity = volumes.vel.readSurface<REAL4>(x, y - 1, z);
+			if (downHasVelocity.x && downNewVelocity.y > epsilon) {
+				sumNeighborX += downNewVelocity.x;
+				neighborXCount++;
+			}
+		}
+		if (z > 0) {
+
+			uint4 backHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z - 1);
+			REAL4 backNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z - 1);
+			if (backHasVelocity.x && backNewVelocity.z > epsilon) {
+				sumNeighborX += backNewVelocity.x;
+				neighborXCount++;
+			}
+		}
+		if (x < gridRes - 1) {
+
+			uint4 rightHasVelocity = volumes.hasVel.readSurface<uint4>(x + 1, y, z);
+			REAL4 rightNewVelocity = volumes.vel.readSurface<REAL4>(x + 1, y, z);
+			if (rightHasVelocity.x && rightNewVelocity.x < -epsilon) {
+				sumNeighborX += rightNewVelocity.x;
+				neighborXCount++;
+			}
+		}
+		if (y < gridRes - 1) {
+
+			uint4 upHasVelocity = volumes.hasVel.readSurface<uint4>(x, y + 1, z);
+			REAL4 newVelocity = volumes.vel.readSurface<REAL4>(x, y + 1, z);
+			if (upHasVelocity.x && newVelocity.y < -epsilon) {
+				sumNeighborX += newVelocity.x;
+				neighborXCount++;
+			}
+		}
+		if (z < gridRes - 1) {
+
+			uint4 frontHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z + 1);
+			REAL4 frontNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z + 1);
+			if (frontHasVelocity.x && frontNewVelocity.z < -epsilon) {
+				sumNeighborX += frontNewVelocity.x;
+				neighborXCount++;
+			}
+		}
+
+		if (neighborXCount > 0) {
+			thisNewVelocity.x = sumNeighborX / (float)neighborXCount;
+			thisHasVelocity.x = true;
+		}
+	}
+
+	if (!thisHasVelocity.y) {
+		float sumNeighborY = 0;
+		int neighborYCount = 0;
+		if (x > 0) {
+
+			uint4 leftHasVelocity = volumes.hasVel.readSurface<uint4>(x - 1, y, z);
+			REAL4 leftNewVelocity = volumes.vel.readSurface<REAL4>(x - 1, y, z);
+			if (leftHasVelocity.y && leftNewVelocity.x > epsilon) {
+				sumNeighborY += leftNewVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (y > 0) {
+
+			uint4 downHasVelocity = volumes.hasVel.readSurface<uint4>(x, y - 1, z);
+			REAL4 downNewVelocity = volumes.vel.readSurface<REAL4>(x, y - 1, z);
+			if (downHasVelocity.y && downNewVelocity.y > epsilon) {
+				sumNeighborY += downNewVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (z > 0) {
+
+			uint4 backHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z - 1);
+			REAL4 backNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z - 1);
+			if (backHasVelocity.y && backNewVelocity.z > epsilon) {
+				sumNeighborY += backNewVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (x < gridRes - 1) {
+
+			uint4 rightHasVelocity = volumes.hasVel.readSurface<uint4>(x + 1, y, z);
+			REAL4 rightNewVelocity = volumes.vel.readSurface<REAL4>(x + 1, y, z);
+			if (rightHasVelocity.y && rightNewVelocity.x < -epsilon) {
+				sumNeighborY += rightNewVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (y < gridRes - 1) {
+
+			uint4 upHasVelocity = volumes.hasVel.readSurface<uint4>(x, y + 1, z);
+			REAL4 newVelocity = volumes.vel.readSurface<REAL4>(x, y + 1, z);
+			if (upHasVelocity.y && newVelocity.y < -epsilon) {
+				sumNeighborY += newVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (z < gridRes - 1) {
+
+			uint4 frontHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z + 1);
+			REAL4 frontNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z + 1);
+			if (frontHasVelocity.y && frontNewVelocity.z < -epsilon) {
+				sumNeighborY += frontNewVelocity.y;
+				neighborYCount++;
+			}
+		}
+		if (neighborYCount > 0) {
+			thisNewVelocity.y = sumNeighborY / (float)neighborYCount;
+			thisHasVelocity.y = true;
+
+		}
+
+	}
+
+	if (!thisHasVelocity.z) {
+		float sumNeighborZ = 0;
+		int neighborZCount = 0;
+		if (x > 0) {
+
+			uint4 leftHasVelocity = volumes.hasVel.readSurface<uint4>(x - 1, y, z);
+			REAL4 leftNewVelocity = volumes.vel.readSurface<REAL4>(x - 1, y, z);
+			if (leftHasVelocity.z && leftNewVelocity.x > epsilon) {
+				sumNeighborZ += leftNewVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (y > 0) {
+
+			uint4 downHasVelocity = volumes.hasVel.readSurface<uint4>(x, y - 1, z);
+			REAL4 downNewVelocity = volumes.vel.readSurface<REAL4>(x, y - 1, z);
+			if (downHasVelocity.z && downNewVelocity.y > epsilon) {
+				sumNeighborZ += downNewVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (z > 0) {
+
+			uint4 backHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z - 1);
+			REAL4 backNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z - 1);
+			if (backHasVelocity.z && backNewVelocity.z > epsilon) {
+				sumNeighborZ += backNewVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (x < gridRes - 1) {
+
+			uint4 rightHasVelocity = volumes.hasVel.readSurface<uint4>(x + 1, y, z);
+			REAL4 rightNewVelocity = volumes.vel.readSurface<REAL4>(x + 1, y, z);
+			if (rightHasVelocity.z && rightNewVelocity.x < -epsilon) {
+				sumNeighborZ += rightNewVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (y < gridRes - 1) {
+
+			uint4 upHasVelocity = volumes.hasVel.readSurface<uint4>(x, y + 1, z);
+			REAL4 newVelocity = volumes.vel.readSurface<REAL4>(x, y + 1, z);
+			if (upHasVelocity.z && newVelocity.y < -epsilon) {
+				sumNeighborZ += newVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (z < gridRes - 1) {
+
+			uint4 frontHasVelocity = volumes.hasVel.readSurface<uint4>(x, y, z + 1);
+			REAL4 frontNewVelocity = volumes.vel.readSurface<REAL4>(x, y, z + 1);
+			if (frontHasVelocity.z && frontNewVelocity.z < -epsilon) {
+				sumNeighborZ += frontNewVelocity.z;
+				neighborZCount++;
+			}
+		}
+		if (neighborZCount > 0) {
+			thisNewVelocity.z = sumNeighborZ / (float)neighborZCount;
+			thisHasVelocity.z = true;
+		}
+	}
+
+	volumes.hasVel.writeSurface<uint4>(thisHasVelocity, x, y, z);
+	volumes.vel.writeSurface<REAL4>(thisNewVelocity, x, y, z);
+}
+
+__global__ void SubtarctGrid_D(VolumeCollection volumes, uint gridRes)
+{
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
+	REAL4 beforeVel = volumes.velSave.readSurface<REAL4>(x, y, z);
+	REAL4 afterVel = volumes.vel.readSurface<REAL4>(x, y, z);
+
+	REAL subVelX = afterVel.x - beforeVel.x;
+	REAL subVelY = afterVel.y - beforeVel.y;
+	REAL subVelZ = afterVel.z - beforeVel.z;
+	REAL4 newVel = make_float4(subVelX, subVelY, subVelZ, 0.0);
+
+	volumes.velSave.writeSurface<REAL4>(newVel, x, y, z);
+}
+
+
+
+__device__
+inline REAL3 lerp(REAL3 v0, REAL3 v1, REAL t) {
+	return (1 - t) * v0 + t * v1;
+}
+
+__device__
+REAL3 GetLerpValueAtPoint(VolumeData data, REAL x, REAL y, REAL z, uint gridRes)
+{
+	x = max(min(x, gridRes - 1.f), 0.f);
+	y = max(min(y, gridRes - 1.f), 0.f);
+	z = max(min(z, gridRes - 1.f), 0.f);
+
+	uint i = floor(x);
+	uint j = floor(y);
+	uint k = floor(z);
+
+	REAL tx = x - (REAL)i;
+	REAL ty = y - (REAL)j;
+	REAL tz = z - (REAL)k;
+	
+	REAL3 a = make_REAL3(data.readSurface<REAL4>(i, j, k).x, data.readSurface<REAL4>(i, j, k).y, data.readSurface<REAL4>(i, j, k).z);
+	REAL3 b = make_REAL3(data.readSurface<REAL4>(i, j, k + 1).x, data.readSurface<REAL4>(i, j, k + 1).y, data.readSurface<REAL4>(i, j, k + 1).z);
+	REAL3 x0y0 =
+		lerp(a, b, tz);
+
+	REAL3 c = make_REAL3(data.readSurface<REAL4>(i, j + 1, k).x, data.readSurface<REAL4>(i, j + 1, k).y, data.readSurface<REAL4>(i, j + 1, k).z);
+	REAL3 d = make_REAL3(data.readSurface<REAL4>(i, j + 1, k + 1).x, data.readSurface<REAL4>(i, j + 1, k + 1).y, data.readSurface<REAL4>(i, j + 1, k + 1).z);
+	REAL3 x0y1 =
+		lerp(c, d, tz);
+
+	REAL3 e = make_REAL3(data.readSurface<REAL4>(i + 1, j, k).x, data.readSurface<REAL4>(i + 1, j, k).y, data.readSurface<REAL4>(i + 1, j, k).z);
+	REAL3 f = make_REAL3(data.readSurface<REAL4>(i + 1, j, k + 1).x, data.readSurface<REAL4>(i + 1, j, k + 1).y, data.readSurface<REAL4>(i + 1, j, k + 1).z);
+	REAL3 x1y0 =
+		lerp(e, f, tz);
+
+	REAL3 g = make_REAL3(data.readSurface<REAL4>(i + 1, j + 1, k).x, data.readSurface<REAL4>(i + 1, j + 1, k).y, data.readSurface<REAL4>(i + 1, j + 1, k).z);
+	REAL3 h = make_REAL3(data.readSurface<REAL4>(i + 1, j + 1, k + 1).x, data.readSurface<REAL4>(i + 1, j + 1, k + 1).y, data.readSurface<REAL4>(i + 1, j + 1, k + 1).z);
+	REAL3 x1y1 =
+		lerp(g, h, tz);
+
+	REAL3 x0 = lerp(x0y0, x0y1, ty);
+	REAL3 x1 = lerp(x1y0, x1y1, ty);
+
+	REAL3 result = lerp(x0, x1, tx);
+	return result;
+}
+
+__device__
+REAL3 GetPointSaveVelocity(REAL3 physicalPos, REAL cellPhysicalSize, uint gridRes, VolumeCollection volume) {
+	REAL x = physicalPos.x / cellPhysicalSize;
+	REAL y = physicalPos.y / cellPhysicalSize;
+	REAL z = physicalPos.z / cellPhysicalSize;
+
+	REAL3 result;
+
+	result.x = GetLerpValueAtPoint(volume.velSave, x, y - 0.5, z - 0.5, gridRes).x;
+	result.y = GetLerpValueAtPoint(volume.velSave, x - 0.5, y, z - 0.5, gridRes).y;
+	result.z = GetLerpValueAtPoint(volume.velSave, x - 0.5, y - 0.5, z, gridRes).z;
+
+	return result;
+}
+
+__device__
+REAL3 GetPointAfterVelocity(REAL3 physicalPos, REAL cellPhysicalSize, uint gridRes, VolumeCollection volume) {
+	REAL x = physicalPos.x / cellPhysicalSize;
+	REAL y = physicalPos.y / cellPhysicalSize;
+	REAL z = physicalPos.z / cellPhysicalSize;
+
+	REAL3 result;
+
+	result.x = GetLerpValueAtPoint(volume.vel, x, y - 0.5, z - 0.5, gridRes).x;
+	result.y = GetLerpValueAtPoint(volume.vel, x - 0.5, y, z - 0.5, gridRes).y;
+	result.z = GetLerpValueAtPoint(volume.vel, x - 0.5, y - 0.5, z, gridRes).z;
+
+	return result;
+}
+
+__global__ void TrasnferToParticle_D(VolumeCollection volumes, uint gridRes, REAL3* pos, REAL3* vel, uint numParticles)
+{
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= numParticles) return;
+
+	REAL cellSize = 1.0 / gridRes;
+	REAL3 position = pos[index];
+	REAL3 oldGridVel = GetPointSaveVelocity(position, cellSize, gridRes, volumes);
+	REAL3 newGridVel = GetPointAfterVelocity(position, cellSize, gridRes, volumes);
+	REAL3 velChange = newGridVel - oldGridVel;
+
+	REAL3 FLIP = vel[index] + velChange;
+	REAL3 PIC = newGridVel;
+
+	REAL FLIPCoeff = 0.95;
+	vel[index] = FLIPCoeff * FLIP + (1.0 - FLIPCoeff) * PIC;
+}
+
+
+
+
+
+
 
 __global__ void AdvecParticle_D(REAL3* beforePos, REAL3* curPos, REAL3* vel, uint* type, uint numParticles, REAL dt)
 {
@@ -370,6 +735,10 @@ __global__ void AdvecParticle_D(REAL3* beforePos, REAL3* curPos, REAL3* vel, uin
 
 	beforePos[idx] = curPos[idx];
 	curPos[idx] += dt * vel[idx];
+
+	curPos[idx].x = max((REAL)(1.0/32), min((REAL)(1.0 - 1.0/32), curPos[idx].x));
+	curPos[idx].y = max((REAL)(1.0/32), min((REAL)(1.0 - 1.0/32), curPos[idx].y));
+	curPos[idx].z = max((REAL)(1.0/32), min((REAL)(1.0 - 1.0/32), curPos[idx].z));
 }
 
 __global__ void CalculateHash_D(uint* gridHash, uint* gridIdx, REAL3* pos, uint gridRes, uint numParticles)
