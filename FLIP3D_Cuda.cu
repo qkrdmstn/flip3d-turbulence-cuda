@@ -324,7 +324,7 @@ void FLIP3D_Cuda::SolvePICFLIP()
 	ComputeLevelSet_kernel();
 	SolvePressureJacobi_kernel();
 	ComputeVelocityWithPress_kernel();
-	EnforceBoundary_kernel();
+	//EnforceBoundary_kernel();
 
 
 	ExtrapolateVelocity_kernel();
@@ -377,6 +377,7 @@ void FLIP3D_Cuda::ComputeGridDensity_kernel()
 	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
 		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes, d_Flag());
 }
+
 void FLIP3D_Cuda::SolvePressureJacobi_kernel()
 {
 	for (int i = 0; i < _iterations; i++)

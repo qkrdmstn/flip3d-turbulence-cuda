@@ -74,7 +74,7 @@ public:
 	FLIPGRID* _grid;
 
 public:
-	uint _iterations = 30;
+	uint _iterations = 100;
 	uint _numParticles;
 	uint _gridRes;
 

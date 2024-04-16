@@ -333,8 +333,8 @@ __global__ void ComputeGridDensity_D(VolumeCollection volumes, REAL3* pos, uint*
 		return;
 	}
 
-	REAL3 centerPos = make_REAL3(x + 0.5, y + 0.5, z + 0.5);
 	REAL cellSize = 1.0 / gridRes;
+	REAL3 centerPos = make_REAL3(x + 0.5, y + 0.5, z + 0.5) * cellSize;
 	int3 gridPos = make_int3(x, y, z);
 	uint hash = calcGridHash(gridPos, gridRes);
 
@@ -364,7 +364,8 @@ __global__ void ComputeGridDensity_D(VolumeCollection volumes, REAL3* pos, uint*
 		}
 	} END_FOR;
 	REAL dens = wsum / maxDens;
-	//printf("dens %f\n", dens);
+	//printf("dens cal: %f\n", dens);
+	volumes.density.writeSurface<REAL>(dens, x, y, z);
 }
 
 __global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
@@ -387,11 +388,14 @@ __global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* 
 		REAL div = ((rightVel.x - curVel.x) + (upVel.y - curVel.y) + (frontVel.z - curVel.z));
 		volumes.divergence.writeSurface<REAL>(div, x, y, z);
 
-		//printf("Div: %f\n", div);
-		//printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
-		//printf("rightVel: %f %f %f\n", rightVel.x, rightVel.y, rightVel.z);
-		//printf("upVel: %f %f %f\n", upVel.x, upVel.y, upVel.z);
-		//printf("frontVel: %f %f %f\n", frontVel.x, frontVel.y, frontVel.z);
+		//if (x == 15 && y == 15 && z == 15)
+		//{
+
+		//	printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
+		//	printf("rightVel: %f %f %f\n", rightVel.x, rightVel.y, rightVel.z);
+		//	printf("upVel: %f %f %f\n", upVel.x, upVel.y, upVel.z);
+		//	printf("frontVel: %f %f %f\n", frontVel.x, frontVel.y, frontVel.z);
+		//}
 	}
 }
 
@@ -424,31 +428,51 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes)
 	}
 
 
-	REAL thisDensity = volumes.density.readSurface<uint>(x, y, z);
-	//REAL thisDensity = volumes.density.readSurface<REAL>( x, y, z);
-	//printf("dens %f\n", thisDensity);
+	REAL thisDensity = volumes.density.readTexture<REAL>(x, y, z);
 
-	//printf("thisden %f %f %f\n", thisDensity, wsum, maxDens);
+
 	REAL RHS = -volumes.divergence.readSurface<REAL>(x, y, z) * thisDensity;
 
 	REAL newPress = 0.0;
-	REAL centerCoeff = 26.0;
+	REAL centerCoeff = 6.0;
 
 	newPress += volumes.press.readTexture<REAL>(x + 1, y, z);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress1: %f \n", newPress);
+
 	newPress += volumes.press.readTexture<REAL>(x - 1, y, z);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress2: %f \n", newPress);
+
 	newPress += volumes.press.readTexture<REAL>(x, y + 1, z);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress3: %f \n", newPress);
+
 	newPress += volumes.press.readTexture<REAL>(x, y - 1, z);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress4: %f \n", newPress);
+
 	newPress += volumes.press.readTexture<REAL>(x, y, z + 1);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress5: %f \n", newPress);
+
 	newPress += volumes.press.readTexture<REAL>(x, y, z - 1);
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress6: %f \n", newPress);
+
 	newPress += RHS;
+	if (x == 15 && y == 15 && z == 15)
+		printf("newPress7: %f \n", newPress);
+
 
 	newPress /= centerCoeff;
 
-	//if (newPress != 0)
-	//{
-	//	printf("rhs: %f\n", volumes.divergence.readSurface<REAL>(x, y, z));
-	//	printf("newPress: %f\n", newPress);
-	//}
+	if (x == 15 && y == 15 && z == 15)
+	{
+		printf("newPress8: %f \n", newPress);
+		printf("rhs: %f, div:%f,  dens: %f\n", RHS, volumes.divergence.readSurface<REAL>(x, y, z), thisDensity);;
+
+	}
 
 	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
@@ -461,6 +485,79 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
+#if 1
+	uint thisContent = volumes.content.readSurface<uint>(x, y, z);
+	REAL thisPress = volumes.press.readSurface<REAL>(x, y, z);
+	REAL thisDensity = volumes.density.readSurface<REAL>(x, y, z);
+
+	REAL4 curVel = volumes.vel.readSurface<REAL4>(x, y, z);
+	REAL4 newVel = make_REAL4(0, 0, 0, 0);
+	uint4 hasVelocity = make_uint4(0, 0, 0, 0);
+
+	REAL densityUsed;
+	if (x > 0) {
+		REAL leftPress = volumes.press.readSurface<REAL>(x - 1, y, z);
+		uint leftContent = volumes.content.readSurface<uint>(x - 1, y, z);
+
+		if (thisContent == CONTENT_FLUID || leftContent == CONTENT_FLUID) {
+			densityUsed = thisDensity;
+			REAL leftDensity = volumes.density.readSurface<REAL>(x - 1, y, z);
+			if (thisContent == CONTENT_FLUID && leftContent == CONTENT_FLUID) {
+				densityUsed = (leftDensity + thisDensity) / 2.0;
+			}
+			else if (leftContent == CONTENT_FLUID) {
+				densityUsed = leftDensity;
+			}
+		}
+		newVel.x = curVel.x - ((thisPress - leftPress) / densityUsed);
+		hasVelocity.x = true;
+
+		//if (x == 15 && y == 15 && z == 15)
+		//{
+		//	printf("thisPress: %f \n", thisPress);
+		//	printf("leftPress: %f \n", leftPress);
+		//	printf("densityUsed: %f \n", densityUsed);
+		//	printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
+		//	printf("newVel: %f %f %f\n", newVel.x, newVel.y, newVel.z);
+		//}
+	}
+
+	if (y > 0) {
+		REAL downPress = volumes.press.readSurface<REAL>(x, y - 1, z);
+		uint downContent = volumes.content.readSurface<uint>(x, y - 1, z);
+
+		if (thisContent == CONTENT_FLUID || downContent == CONTENT_FLUID) {
+			densityUsed = thisDensity;
+			REAL downDensity = volumes.density.readSurface<REAL>(x, y - 1, z);
+			if (thisContent == CONTENT_FLUID && downContent == CONTENT_FLUID) {
+				densityUsed = (downDensity + thisDensity) / 2.0;
+			}
+			else if (downContent == CONTENT_FLUID) {
+				densityUsed = downDensity;
+			}
+		}
+		newVel.y = curVel.y - ((thisPress - downPress) / densityUsed);
+		hasVelocity.y = true;
+	}
+
+	if (z > 0) {
+		REAL backPress = volumes.press.readSurface<REAL>(x, y, z - 1);
+		uint backContent = volumes.content.readSurface<uint>(x, y, z - 1);
+
+		if (thisContent == CONTENT_FLUID || backContent == CONTENT_FLUID) {
+			densityUsed = thisDensity;
+			REAL backDensity = volumes.density.readSurface<REAL>(x, y, z - 1);
+			if (thisContent == CONTENT_FLUID && backContent == CONTENT_FLUID) {
+				densityUsed = (backDensity + thisDensity) / 2.0;
+			}
+			else if (backContent == CONTENT_FLUID) {
+				densityUsed = backDensity;
+			}
+}
+		newVel.z = curVel.z - ((thisPress - backPress) / densityUsed);
+		hasVelocity.z = true;
+	}
+#else
 	REAL cellSize = 1.0 / gridRes;
 	REAL dens = volumes.density.readSurface<REAL>(x, y, z);
 	REAL levelSet = volumes.levelSet.readSurface<REAL>(x, y, z);
@@ -507,10 +604,14 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 		newVel.z = curVel.z - ((press - pressZ) / dens);
 		hasVelocity.z = true;
 	}
+#endif
+	//if (x==15 && y==15 && z==15)
+	//{
+	//	printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
+	//	printf("newVel: %f %f %f\n", newVel.x, newVel.y, newVel.z);
+	//	printf("changVel: %f %f %f\n", newVel.x - curVel.x, newVel.y - curVel.y, newVel.z - curVel.z);
 
-	//printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
-	//printf("newVel: %f %f %f\n", newVel.x, newVel.y, newVel.z);
-	//printf("changVel: %f %f %f\n", newVel.x - curVel.x, newVel.y - curVel.y, newVel.z - curVel.z);
+	//}
 
 	volumes.hasVel.writeSurface<uint4>(hasVelocity, x, y, z);
 	volumes.vel.writeSurface<REAL4>(newVel, x, y, z);
@@ -838,7 +939,7 @@ __global__ void TrasnferToParticle_D(VolumeCollection volumes, uint gridRes, REA
 	REAL3 FLIP = vel[index] + oldGridVel;
 	REAL3 PIC = newGridVel;
 
-	REAL FLIPCoeff = 0.95;
+	REAL FLIPCoeff = 1;
 	vel[index] = FLIPCoeff * FLIP + (1.0 - FLIPCoeff) * PIC;
 
 	//if (index == 1234)
