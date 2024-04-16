@@ -27,8 +27,8 @@ void Init(void)
 {
 	// 깊이값 사용 여부
 	glEnable(GL_DEPTH_TEST);
-
-	_engine = new FLIPEngine(make_REAL3(0.0, -9.81, 0.0), 0.002);
+	// 0.6e-2
+	_engine = new FLIPEngine(make_REAL3(0.0, -9.81, 0.0), 0.6e-2);
 }
 
 void Capture(char* filename, int width, int height)

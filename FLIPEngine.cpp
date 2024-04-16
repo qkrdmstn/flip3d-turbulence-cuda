@@ -13,7 +13,7 @@ void	FLIPEngine::simulation(void)
 {
 	printf("-------------- Step %d --------------\n", _frame);
 	_fluid->SetHashTable_kernel();
-	_fluid->ComputeDensity_kernel();
+	_fluid->ComputeParticleDensity_kernel();
 	_fluid->ComputeExternalForce_kernel(_gravity, _dt);
 
 	_fluid->SolvePICFLIP();
@@ -21,8 +21,8 @@ void	FLIPEngine::simulation(void)
 	_fluid->AdvectParticle_kernel(_dt);
 	_fluid->CopyToHost();
 
-	if (_frame > 500)
-		exit(0);
+	//if (_frame > 500)
+	//	exit(0);
 	_frame++;
 }
 

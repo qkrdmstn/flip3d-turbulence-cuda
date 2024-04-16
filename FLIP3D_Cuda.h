@@ -74,14 +74,14 @@ public:
 	FLIPGRID* _grid;
 
 public:
-	uint iterations = 10;
+	uint _iterations = 30;
 	uint _numParticles;
 	uint _gridRes;
 
 	REAL _wallThick;
 	REAL _dens;
 	REAL _maxDens = 92.9375;
-	REAL3 _externalForce;
+	REAL3 _externalForce = make_REAL3(0, 0, 0);
 
 	REAL _cellPhysicalSize; //hash table
 
@@ -109,14 +109,15 @@ public:		//Initialize
 	void ComputeWallNormal(void);
 
 public:		//Simulation
-	void ComputeDensity_kernel(void);
+	void ComputeParticleDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void ComputeDivergence_kernel(void);
+	void SolvePICFLIP(void);
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);
 	void EnforceBoundary_kernel(void);
-
-	void SolvePICFLIP(void);
+	void ComputeDivergence_kernel(void);
+	void ComputeLevelSet_kernel(void);
+	void ComputeGridDensity_kernel(void);
 	void SolvePressureJacobi_kernel(void);
 	void ComputeVelocityWithPress_kernel(void);
 	void ExtrapolateVelocity_kernel(void);

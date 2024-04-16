@@ -15,10 +15,11 @@ FLIPGRID::FLIPGRID(uint res, REAL cellPhysicalSize):
 	d_Volumes.velSave = createField3D<REAL4>(_gridRes + 1, _gridRes + 1, _gridRes + 1, _cudaGridSize, _cudaBlockSize, make_REAL4(0, 0, 0, 0), true);
 	d_Volumes.hasVel = createField3D<uint4>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, make_uint4(0, 0, 0, 0), false);
 
-	d_Volumes.content = createField3D<uint>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, CONTENT_AIR, false);
+	d_Volumes.content = createField3D<uint>(_gridRes + 1, _gridRes + 1, _gridRes + 1, _cudaGridSize, _cudaBlockSize, CONTENT_AIR, false);
 	d_Volumes.levelSet = createField3D<REAL>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, 0.0, false);
 	d_Volumes.press = createField3D<REAL>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, 0.0, false);
 	d_Volumes.divergence = createField3D<REAL>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, 0.0, false);
+	d_Volumes.density = createField3D<REAL>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, 0.0, false);
 
 	d_Volumes.wallNormal = createField3D<REAL4>(_gridRes, _gridRes, _gridRes, _cudaGridSize, _cudaBlockSize, make_REAL4(0, 0, 0, 0), false);
 
@@ -32,6 +33,7 @@ FLIPGRID::~FLIPGRID()
 	releaseField3D(d_Volumes.content);
 	releaseField3D(d_Volumes.levelSet);
 	releaseField3D(d_Volumes.press);
+	releaseField3D(d_Volumes.density);
 	releaseField3D(d_Volumes.divergence);
 	releaseField3D(d_Volumes.hasVel);
 	releaseField3D(d_Volumes.wallNormal);

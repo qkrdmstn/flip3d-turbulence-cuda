@@ -26,6 +26,7 @@ void FLIP3D_Cuda::Init(void)
 
 	InitDeviceMem();
 	CopyToDevice();
+	//cudaDeviceSynchronize();
 }
 
 void FLIP3D_Cuda::ParticleInit()
@@ -300,9 +301,9 @@ void FLIP3D_Cuda::ComputeWallNormal()
 	}
 }
 
-void FLIP3D_Cuda::ComputeDensity_kernel()
+void FLIP3D_Cuda::ComputeParticleDensity_kernel()
 {
-	ComputeDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	ComputeParticleDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens, d_Flag());
 }
 
@@ -314,13 +315,18 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::SolvePICFLIP()
 {
+	ComputeGridDensity_kernel();
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
 
 	EnforceBoundary_kernel();
 	ComputeDivergence_kernel();
+	ComputeLevelSet_kernel();
 	SolvePressureJacobi_kernel();
+	ComputeVelocityWithPress_kernel();
 	EnforceBoundary_kernel();
+
+
 	ExtrapolateVelocity_kernel();
 	SubtarctGrid_kernel();
 
@@ -341,7 +347,19 @@ void FLIP3D_Cuda::MarkWater_kernel()
 
 void FLIP3D_Cuda::EnforceBoundary_kernel()
 {
-	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+	//EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+
+	uint total = _gridRes * _gridRes;
+	uint numThreads = min(1024u, total);
+	uint numBlocks = divup(total, numThreads);
+	FixBoundaryX << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	cudaDeviceSynchronize();
+
+	FixBoundaryY << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	cudaDeviceSynchronize();
+
+	FixBoundaryZ << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	cudaDeviceSynchronize();
 }
 
 void FLIP3D_Cuda::ComputeDivergence_kernel()
@@ -349,11 +367,22 @@ void FLIP3D_Cuda::ComputeDivergence_kernel()
 	ComputeDivergence_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(),_gridRes);
 }
 
+void FLIP3D_Cuda::ComputeLevelSet_kernel()
+{
+	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+}
+
+void FLIP3D_Cuda::ComputeGridDensity_kernel()
+{
+	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes, d_Flag());
+}
 void FLIP3D_Cuda::SolvePressureJacobi_kernel()
 {
-	for (int i = 0; i < iterations; i++)
+	for (int i = 0; i < _iterations; i++)
 	{
-		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes);
+		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
+			(_grid->d_Volumes, _gridRes);
 	}
 }
 
@@ -383,7 +412,7 @@ void FLIP3D_Cuda::TrasnferToParticle_kernel()
 void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
 {
 	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
-		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _numParticles, dt);
+		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
 }
 
 
@@ -494,25 +523,26 @@ void FLIP3D_Cuda::draw(void)
 	glPointSize(2.0);
 	for (uint i = 0u; i < _numParticles; i++)
 	{
-		//////////cout << h_Dens[i] << endl;
-		//REAL3 color = ScalarToColor(h_Dens[i]);
-		//glColor3f(color.x, color.y, color.z);
-
 		//if (h_Flag[i])
 		//	glColor3f(1.0f, 0.0f, 0.0f);
 		//else
 		//{
-		//	continue;
+		//	//continue;
 		//	glColor4f(0.0f, 0.0f, 1.0f, 0.3);
 		//}
+		
+		//////cout << h_Dens[i] << endl;
+		REAL3 color = ScalarToColor(h_Dens[i]);
+		glColor3f(color.x, color.y, color.z);
 
 		if (h_Type[i] == WALL) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		else
-			glColor3f(0.0f, 1.0f, 1.0f);
+		//else
+		//	glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
+
 
 		glBegin(GL_POINTS);
 		glVertex3d(h_CurPos[i].x, h_CurPos[i].y, h_CurPos[i].z);

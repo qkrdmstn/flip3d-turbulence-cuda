@@ -40,7 +40,6 @@ void clearField3D(VolumeData field, int sizeX, int sizeY, int sizeZ, T valueToCl
 
 	if (x >= sizeX || y >= sizeY || z >= sizeZ) return;
 	surf3Dwrite<T>(valueToClear, field.surface, x * sizeof(T), y, z);
-	
 };
 
 

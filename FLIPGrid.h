@@ -27,6 +27,7 @@ struct VolumeCollection {
 	VolumeData levelSet;
 	VolumeData press;
 	VolumeData divergence;
+	VolumeData density;
 
 	VolumeData wallNormal;
 };
