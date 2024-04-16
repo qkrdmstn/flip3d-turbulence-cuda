@@ -80,8 +80,8 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
-	//DamBreakTest();
+	//WaterDropTest();
+	DamBreakTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -315,22 +315,27 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::SolvePICFLIP()
 {
-	ComputeGridDensity_kernel();
+	ResetCell_kernel();
+
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
 
+	ComputeGridDensity_kernel();
 	EnforceBoundary_kernel();
 	ComputeDivergence_kernel();
 	ComputeLevelSet_kernel();
 	SolvePressureJacobi_kernel();
 	ComputeVelocityWithPress_kernel();
-	//EnforceBoundary_kernel();
-
-
+	EnforceBoundary_kernel();
 	ExtrapolateVelocity_kernel();
-	SubtarctGrid_kernel();
 
+	SubtarctGrid_kernel();
 	TrasnferToParticle_kernel();
+}
+
+void FLIP3D_Cuda::ResetCell_kernel()
+{
+	ResetCell_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
 }
 
 void FLIP3D_Cuda::TrasnferToGrid_kernel()
@@ -342,24 +347,24 @@ void FLIP3D_Cuda::TrasnferToGrid_kernel()
 void FLIP3D_Cuda::MarkWater_kernel()
 {
 	MarkWater_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
 }
 
 void FLIP3D_Cuda::EnforceBoundary_kernel()
 {
-	//EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
 
-	uint total = _gridRes * _gridRes;
-	uint numThreads = min(1024u, total);
-	uint numBlocks = divup(total, numThreads);
-	FixBoundaryX << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	cudaDeviceSynchronize();
+	//uint total = _gridRes * _gridRes;
+	//uint numThreads = min(1024u, total);
+	//uint numBlocks = divup(total, numThreads);
+	//FixBoundaryX << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	//cudaDeviceSynchronize();
 
-	FixBoundaryY << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	cudaDeviceSynchronize();
+	//FixBoundaryY << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	//cudaDeviceSynchronize();
 
-	FixBoundaryZ << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	cudaDeviceSynchronize();
+	//FixBoundaryZ << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+	//cudaDeviceSynchronize();
 }
 
 void FLIP3D_Cuda::ComputeDivergence_kernel()
@@ -369,7 +374,7 @@ void FLIP3D_Cuda::ComputeDivergence_kernel()
 
 void FLIP3D_Cuda::ComputeLevelSet_kernel()
 {
-	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
 }
 
 void FLIP3D_Cuda::ComputeGridDensity_kernel()

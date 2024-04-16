@@ -6,7 +6,7 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_dt = dt;
 	_frame = 0u;
 
-	_fluid = new FLIP3D_Cuda(32u);
+	_fluid = new FLIP3D_Cuda(64u);
 }
 
 void	FLIPEngine::simulation(void)

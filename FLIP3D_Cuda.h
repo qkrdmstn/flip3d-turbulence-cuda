@@ -74,7 +74,7 @@ public:
 	FLIPGRID* _grid;
 
 public:
-	uint _iterations = 100;
+	uint _iterations = 200u;
 	uint _numParticles;
 	uint _gridRes;
 
@@ -109,6 +109,7 @@ public:		//Initialize
 	void ComputeWallNormal(void);
 
 public:		//Simulation
+	void ResetCell_kernel(void);
 	void ComputeParticleDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
 	void SolvePICFLIP(void);
