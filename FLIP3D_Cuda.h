@@ -48,6 +48,7 @@ public:		//Device
 	Dvector<uint> d_Remove;
 	Dvector<REAL> d_Mass;
 	Dvector<REAL> d_Dens;
+	Dvector<REAL4> d_VolumeFraction;
 
 	Dvector<BOOL> d_Flag;
 
@@ -68,6 +69,7 @@ public:		//Host
 	vector<uint> h_Remove;
 	vector<REAL> h_Mass;
 	vector<REAL> h_Dens;
+	vector<REAL4> h_VolumeFraction;
 	
 	vector<BOOL> h_Flag;
 public:
@@ -79,12 +81,11 @@ public:
 	uint _gridRes;
 
 	REAL _wallThick;
-	REAL _dens;
-	REAL _maxDens = 92.9375;
 	REAL3 _externalForce = make_REAL3(0, 0, 0);
 
 	REAL _cellPhysicalSize; //hash table
-
+	REAL _cellCount;
+	REAL _timeStep;
 
 public:
 	vector<Object> objects;
@@ -106,26 +107,27 @@ public:		//Initialize
 	void WaterDropTest(void);
 	void DamBreakTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
-	void ComputeWallNormal(void);
 
 public:		//Simulation
-	void ResetCell_kernel(void);
-	void ComputeParticleDensity_kernel(void);
-	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void SolvePICFLIP(void);
-	void TrasnferToGrid_kernel(void);
-	void MarkWater_kernel(void);
-	void EnforceBoundary_kernel(void);
-	void ComputeDivergence_kernel(void);
-	void ComputeLevelSet_kernel(void);
-	void ComputeGridDensity_kernel(void);
-	void SolvePressureJacobi_kernel(void);
-	void ComputeVelocityWithPress_kernel(void);
-	void ExtrapolateVelocity_kernel(void);
-	void SubtarctGrid_kernel(void);
-	void TrasnferToParticle_kernel(void);
+	//void ResetCell_kernel(void);
+	//void ComputeParticleDensity_kernel(void);
+	//void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
+	//void SolvePICFLIP(void);
+	//void TrasnferToGrid_kernel(void);
+	//void MarkWater_kernel(void);
+	//void EnforceBoundary_kernel(void);
+	//void ComputeDivergence_kernel(void);
+	//void ComputeLevelSet_kernel(void);
+	//void ComputeGridDensity_kernel(void);
+	//void SolvePressureJacobi_kernel(void);
+	//void ComputeVelocityWithPress_kernel(void);
+	//void ExtrapolateVelocity_kernel(void);
+	//void SubtarctGrid_kernel(void);
+	//void TrasnferToParticle_kernel(void);
+	//void AdvectParticle_kernel(REAL dt);
 
-	void AdvectParticle_kernel(REAL dt);
+	void TrasnferToGrid_kernel(void);
+	void ResetCell_kernel(void);
 
 public:	//Hash
 	void SetHashTable_kernel(void);

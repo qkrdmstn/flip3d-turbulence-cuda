@@ -19,17 +19,22 @@ using namespace std;
 
 __host__ __device__
 struct VolumeCollection {
-	VolumeData vel;
-	VolumeData velSave;
-	VolumeData hasVel;
-
 	VolumeData content;
-	VolumeData levelSet;
-	VolumeData press;
+	VolumeData pressure;
+	VolumeData fluidIndex;
 	VolumeData divergence;
-	VolumeData density;
+	VolumeData particleCount;
 
-	VolumeData wallNormal;
+	VolumeData velocityAccumWeight;
+	VolumeData hasVelocity;
+
+	VolumeData velocity;
+	VolumeData newVelocity;
+
+	VolumeData volumeFractions;
+	VolumeData newVolumeFractions;
+
+	VolumeData density;
 };
 
 class FLIPGRID
@@ -48,12 +53,15 @@ public:
 	dim3 _cudaBlockSize = dim3(8, 8, 8);
 	
 public:
+	uint fluidCount = 0;
+
+public:
 	FLIPGRID();
-	FLIPGRID(uint res, REAL cellPhysicalSize);
+	FLIPGRID(uint res, REAL cellPhysicalSize, uint numParticles);
 	~FLIPGRID();
 
 public:
-	void Init(void);
+	void UpdateFluidCount(void);
 
 
 public:

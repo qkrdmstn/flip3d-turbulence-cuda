@@ -13,16 +13,17 @@ FLIP3D_Cuda:: ~FLIP3D_Cuda()
 void FLIP3D_Cuda::Init(void)
 {
 	_wallThick = 1.0 / _gridRes;
-	_cellPhysicalSize = 1.0 / _gridRes;
-	_dens = 0.5;
-	_maxDens = 92.9375;
 
-	_grid = new FLIPGRID(_gridRes, _cellPhysicalSize);
+
+	_timeStep = 0.6e-2;
+	_cellCount = (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1);
+	_cellPhysicalSize = 1.0 / _gridRes;
 
 	ParticleInit();
 	_numParticles = h_CurPos.size();
 	cout << _numParticles << endl;
-	ComputeWallNormal();
+
+	_grid = new FLIPGRID(_gridRes, _cellPhysicalSize, _numParticles);
 
 	InitDeviceMem();
 	CopyToDevice();
@@ -273,154 +274,150 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 	}
 }
 
-void FLIP3D_Cuda::ComputeWallNormal()
+
+//void FLIP3D_Cuda::ComputeParticleDensity_kernel()
+//{
+//	ComputeParticleDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+//		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens, d_Flag());
+//}
+//
+//void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
+//{
+//	CompExternlaForce_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+//		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
+//}
+//
+//void FLIP3D_Cuda::SolvePICFLIP()
+//{
+//	ResetCell_kernel();
+//
+//	TrasnferToGrid_kernel();
+//	MarkWater_kernel();
+//
+//	ComputeGridDensity_kernel();
+//	EnforceBoundary_kernel();
+//	ComputeDivergence_kernel();
+//	ComputeLevelSet_kernel();
+//	SolvePressureJacobi_kernel();
+//	ComputeVelocityWithPress_kernel();
+//	EnforceBoundary_kernel();
+//	ExtrapolateVelocity_kernel();
+//
+//	SubtarctGrid_kernel();
+//	TrasnferToParticle_kernel();
+//}
+//
+//void FLIP3D_Cuda::ResetCell_kernel()
+//{
+//	ResetCell_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::TrasnferToGrid_kernel()
+//{
+//	TrasnferToGrid_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+//		(_grid->d_Volumes, d_CurPos(), d_Vel(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles);
+//}
+//
+//void FLIP3D_Cuda::MarkWater_kernel()
+//{
+//	MarkWater_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+//		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::EnforceBoundary_kernel()
+//{
+//	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+//
+//	//uint total = _gridRes * _gridRes;
+//	//uint numThreads = min(1024u, total);
+//	//uint numBlocks = divup(total, numThreads);
+//	//FixBoundaryX << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+//	//cudaDeviceSynchronize();
+//
+//	//FixBoundaryY << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+//	//cudaDeviceSynchronize();
+//
+//	//FixBoundaryZ << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
+//	//cudaDeviceSynchronize();
+//}
+//
+//void FLIP3D_Cuda::ComputeDivergence_kernel()
+//{
+//	ComputeDivergence_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(),_gridRes);
+//}
+//
+//void FLIP3D_Cuda::ComputeLevelSet_kernel()
+//{
+//	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::ComputeGridDensity_kernel()
+//{
+//	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+//		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes, d_Flag());
+//}
+//
+//void FLIP3D_Cuda::SolvePressureJacobi_kernel()
+//{
+//	for (int i = 0; i < _iterations; i++)
+//	{
+//		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
+//			(_grid->d_Volumes, _gridRes);
+//	}
+//}
+//
+//void FLIP3D_Cuda::ComputeVelocityWithPress_kernel()
+//{
+//	ComputeVelocityWithPress_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::ExtrapolateVelocity_kernel()
+//{
+//	ExtrapolateVelocity_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::SubtarctGrid_kernel()
+//{
+//	SubtarctGrid_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+//}
+//
+//void FLIP3D_Cuda::TrasnferToParticle_kernel()
+//{
+//	uint numThreads, numBlocks;
+//	ComputeGridSize(_numParticles, 128, numBlocks, numThreads);
+//	TrasnferToParticle_D << <numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes, d_CurPos(), d_Vel(), _numParticles);
+//}
+//
+//
+//void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
+//{
+//	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
+//		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
+//}
+
+
+void FLIP3D_Cuda::TrasnferToGrid_kernel(void)
 {
-	for (int i = 0; i < _numParticles; i++)
-	{
-		if (h_Type[i] == WALL)
-		{
-			if (h_CurPos[i].x <= 1.1 * _wallThick) {
-				h_Normal[i].x = 1.0;
-			}
-			if (h_CurPos[i].x >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].x = -1.0;
-			}
-			if (h_CurPos[i].y <= 1.1 * _wallThick) {
-				h_Normal[i].y = 1.0;
-			}
-			if (h_CurPos[i].y >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].y = -1.0;
-			}
-			if (h_CurPos[i].z <= 1.1 * _wallThick) {
-				h_Normal[i].z = 1.0;
-			}
-			if (h_CurPos[i].z >= 1.0 - 1.1 * _wallThick) {
-				h_Normal[i].z = -1.0;
-			}
-		}
-	}
-}
+	SetHashTable_kernel();
 
-void FLIP3D_Cuda::ComputeParticleDensity_kernel()
-{
-	ComputeParticleDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens, d_Flag());
-}
+	ResetCell_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+	cudaDeviceSynchronize();
+	
+	transferToCellAccumPhase << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+		(_grid->d_Volumes, d_CurPos(), d_Vel(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numParticles, _gridRes);
+	transferToCellDividePhase << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+		(_grid->d_Volumes, d_CurPos(),  d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numParticles, _gridRes);
+	cudaDeviceSynchronize();
 
-void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
-{
-	CompExternlaForce_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
-}
 
-void FLIP3D_Cuda::SolvePICFLIP()
-{
-	ResetCell_kernel();
-
-	TrasnferToGrid_kernel();
-	MarkWater_kernel();
-
-	ComputeGridDensity_kernel();
-	EnforceBoundary_kernel();
-	ComputeDivergence_kernel();
-	ComputeLevelSet_kernel();
-	SolvePressureJacobi_kernel();
-	ComputeVelocityWithPress_kernel();
-	EnforceBoundary_kernel();
-	ExtrapolateVelocity_kernel();
-
-	SubtarctGrid_kernel();
-	TrasnferToParticle_kernel();
+	//AccumPhase transferVolumeFractionsToCell 
+	//DividePhas transferToCellDividePhase
 }
 
 void FLIP3D_Cuda::ResetCell_kernel()
 {
 	ResetCell_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
 }
-
-void FLIP3D_Cuda::TrasnferToGrid_kernel()
-{
-	TrasnferToGrid_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Vel(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles);
-}
-
-void FLIP3D_Cuda::MarkWater_kernel()
-{
-	MarkWater_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
-}
-
-void FLIP3D_Cuda::EnforceBoundary_kernel()
-{
-	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
-
-	//uint total = _gridRes * _gridRes;
-	//uint numThreads = min(1024u, total);
-	//uint numBlocks = divup(total, numThreads);
-	//FixBoundaryX << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	//cudaDeviceSynchronize();
-
-	//FixBoundaryY << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	//cudaDeviceSynchronize();
-
-	//FixBoundaryZ << < numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes);
-	//cudaDeviceSynchronize();
-}
-
-void FLIP3D_Cuda::ComputeDivergence_kernel()
-{
-	ComputeDivergence_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(),_gridRes);
-}
-
-void FLIP3D_Cuda::ComputeLevelSet_kernel()
-{
-	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
-}
-
-void FLIP3D_Cuda::ComputeGridDensity_kernel()
-{
-	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes, d_Flag());
-}
-
-void FLIP3D_Cuda::SolvePressureJacobi_kernel()
-{
-	for (int i = 0; i < _iterations; i++)
-	{
-		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
-			(_grid->d_Volumes, _gridRes);
-	}
-}
-
-void FLIP3D_Cuda::ComputeVelocityWithPress_kernel()
-{
-	ComputeVelocityWithPress_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
-}
-
-void FLIP3D_Cuda::ExtrapolateVelocity_kernel()
-{
-	ExtrapolateVelocity_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
-}
-
-void FLIP3D_Cuda::SubtarctGrid_kernel()
-{
-	SubtarctGrid_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
-}
-
-void FLIP3D_Cuda::TrasnferToParticle_kernel()
-{
-	uint numThreads, numBlocks;
-	ComputeGridSize(_numParticles, 128, numBlocks, numThreads);
-	TrasnferToParticle_D << <numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes, d_CurPos(), d_Vel(), _numParticles);
-}
-
-
-void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
-{
-	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
-		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
-}
-
 
 void FLIP3D_Cuda::SetHashTable_kernel(void)
 {
@@ -487,6 +484,7 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_Remove.free();
 	d_Mass.free();
 	d_Dens.free();
+	d_VolumeFraction.free();
 
 	d_Flag.free();
 }
@@ -502,6 +500,7 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_Remove.copyFromHost(h_Remove);
 	d_Mass.copyFromHost(h_Mass);
 	d_Dens.copyFromHost(h_Dens);
+	d_VolumeFraction.copyFromHost(h_VolumeFraction);
 
 	d_Flag.copyFromHost(h_Flag);
 }
@@ -517,6 +516,7 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_Remove.copyToHost(h_Remove);
 	d_Mass.copyToHost(h_Mass);
 	d_Dens.copyToHost(h_Dens);
+	d_VolumeFraction.copyToHost(h_VolumeFraction);
 
 	d_Flag.copyToHost(h_Flag);
 }
