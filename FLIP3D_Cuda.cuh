@@ -467,6 +467,7 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes)
 	//if (x <= 0 || y <= 0 || z <= 0) return;
 
 	if (volumes.content.readSurface<uint>(x, y, z) == CONTENT_AIR) {
+		//REAL press = volumes.press.readSurface<REAL>(x, y, z);
 		volumes.press.writeSurface<REAL>(0.0, x, y, z);
 		return;
 	}
@@ -474,62 +475,55 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes)
 	REAL cellSize = 1.0 / gridRes;
 	REAL thisDiv = volumes.divergence.readSurface<REAL>(x, y, z);
 	REAL thisDensity = volumes.density.readTexture<REAL>(x, y, z);
-	REAL RHS = -thisDiv * thisDensity * 1.5;
+	REAL RHS = -thisDiv * thisDensity;
 
 	REAL newPress = 0.0;
-	REAL centerCoeff = 6;
+	REAL centerCoeff = 0.0;
 
-	//printf("rhs: %f, div:%f,  dens: %f\n", RHS, thisDensity, thisDensity);
-
+	uint rightContent = volumes.content.readTexture<uint>(x + 1, y, z);
 	REAL rightPress = volumes.press.readTexture<REAL>(x + 1, y, z);
 	newPress += rightPress;
-	//if (x == s && y == s && z == s)
-	//	printf("rightPress: %f %d %d %d\n", rightPress, x+1, y, z);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
+	uint leftContent = volumes.content.readTexture<uint>(x - 1, y, z);
 	REAL leftPress = volumes.press.readTexture<REAL>(x - 1, y, z);
 	newPress += leftPress;
-	//if (x == s && y == s && z == s)
-	//	printf("leftPress: %f %d %d %d\n", leftPress , x - 1, y, z);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
+	uint upContent = volumes.content.readTexture<uint>(x, y + 1, z);
 	REAL upPress = volumes.press.readTexture<REAL>(x, y + 1, z);
 	newPress += upPress;
-	//if (x == s && y == s && z == s)
-	//	printf("upPress: %f %d %d %d\n", upPress, x, y + 1, z);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
+	uint downContent = volumes.content.readTexture<uint>(x, y - 1, z);
 	REAL downPress = volumes.press.readTexture<REAL>(x, y - 1, z);
 	newPress += downPress;
-	//if (x == s && y == s && z == s)
-	//	printf("downPress: %f %d %d %d\n", downPress, x, y - 1, z);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
+	uint frontContent = volumes.content.readTexture<uint>(x, y, z + 1);
 	REAL frontPress = volumes.press.readTexture<REAL>(x, y, z + 1);
 	newPress += frontPress;
-	//if (x == s && y == s && z == s)
-	//	printf("frontPress: %f %d %d %d\n", frontPress, x, y, z + 1);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
+	uint backContent = volumes.content.readTexture<uint>(x, y, z - 1);
 	REAL backPress = volumes.press.readTexture<REAL>(x, y, z - 1);
 	newPress += backPress;
-	//if (x == s && y == s && z == s)
-	//	printf("backPress: %f %d %d %d\n", backPress, x, y, z - 1);
+	if (rightContent != CONTENT_WALL)
+		centerCoeff++;
 
 	newPress += RHS;
-	//if (x == s && y == s && z == s)
-	//	printf("newPress7: %f %d %d %d\n", newPress);
+	newPress /= 6.0;
 
-	newPress /= centerCoeff;
+	//if (centerCoeff > 0.0)
+	//	newPress /= centerCoeff;
+	//else
+	//	newPress = 0.0;
 
-	//if (x == s && y == s && z == s)
-	{
-		
-		//printf("newPress8: %f \n", newPress);
-		//printf("rhs: %f, div:%f,  dens: %f\n", RHS, volumes.divergence.readSurface<REAL>(x, y, z), thisDensity);
-		//printf("rhs: %f, div:%f,  dens: %f %d %d %d\n", RHS, volumes.divergence.readSurface<REAL>(x, y, z), thisDensity, x, y, z);
-	}
-	//REAL thisDiv = volumes.divergence.readSurface<REAL>(x, y, z);
-	//printf("%d %d %d %f\n", x, y, z, volumes.divergence.readSurface<REAL>(x, y, z));
-
-	//if (thisDiv > 1 && thisDiv < 0) {
-	//	printf("%d %d %d %f\n", x, y, z, thisDiv);
-	//}
 	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
 
