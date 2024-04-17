@@ -24,6 +24,10 @@ void FLIP3D_Cuda::Init(void)
 	cout << _numParticles << endl;
 	ComputeWallNormal();
 
+	h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+
 	InitDeviceMem();
 	CopyToDevice();
 	//cudaDeviceSynchronize();
@@ -315,7 +319,7 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::SolvePICFLIP()
 {
-	ResetCell_kernel();
+	//ResetCell_kernel();
 
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
@@ -388,7 +392,7 @@ void FLIP3D_Cuda::SolvePressureJacobi_kernel()
 	for (int i = 0; i < _iterations; i++)
 	{
 		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
-			(_grid->d_Volumes, _gridRes);
+			(_grid->d_Volumes, _gridRes, d_gridPress());
 	}
 }
 
@@ -399,7 +403,7 @@ void FLIP3D_Cuda::ComputeVelocityWithPress_kernel()
 
 void FLIP3D_Cuda::ExtrapolateVelocity_kernel()
 {
-	ExtrapolateVelocity_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
+	ExtrapolateVelocity_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel());
 }
 
 void FLIP3D_Cuda::SubtarctGrid_kernel()
@@ -469,6 +473,11 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_Dens.resize(_numParticles);			d_Dens.memset(0);
 
 	d_Flag.resize(_numParticles);			d_Flag.memset(0);
+
+	d_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPos.memset(0);
+	d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
+	d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
+	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 }
 
 void FLIP3D_Cuda::FreeDeviceMem(void)
@@ -489,6 +498,9 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_Dens.free();
 
 	d_Flag.free();
+	d_gridPos.free();
+	d_gridVel.free();
+	d_gridPress.free();
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
@@ -504,6 +516,9 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_Dens.copyFromHost(h_Dens);
 
 	d_Flag.copyFromHost(h_Flag);
+	d_gridPos.copyFromHost(h_gridPos);
+	d_gridVel.copyFromHost(h_gridVel);
+	d_gridPress.copyFromHost(h_gridPress);
 }
 
 void FLIP3D_Cuda::CopyToHost(void)
@@ -519,6 +534,9 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_Dens.copyToHost(h_Dens);
 
 	d_Flag.copyToHost(h_Flag);
+	d_gridPos.copyToHost(h_gridPos);
+	d_gridVel.copyToHost(h_gridVel);
+	d_gridPress.copyToHost(h_gridPress);
 }
 
 void FLIP3D_Cuda::draw(void)
@@ -537,16 +555,16 @@ void FLIP3D_Cuda::draw(void)
 		//	glColor4f(0.0f, 0.0f, 1.0f, 0.3);
 		//}
 		
-		//////cout << h_Dens[i] << endl;
-		REAL3 color = ScalarToColor(h_Dens[i]);
-		glColor3f(color.x, color.y, color.z);
+		////////cout << h_Dens[i] << endl;
+		//REAL3 color = ScalarToColor(h_Dens[i]);
+		//glColor3f(color.x, color.y, color.z);
 
 		if (h_Type[i] == WALL) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		//else
-		//	glColor3f(0.0f, 1.0f, 1.0f);
+		else
+			glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
 
 
@@ -554,6 +572,42 @@ void FLIP3D_Cuda::draw(void)
 		glVertex3d(h_CurPos[i].x, h_CurPos[i].y, h_CurPos[i].z);
 		glEnd();
 	}
+
+
+	//for (uint i = 0u; i < _gridRes * _gridRes * _gridRes; i++)
+	//{
+	//	glColor3f(1.0f, 1.0f, 1.0f);
+	//	glLineWidth(1.0f);
+	//	//glBegin(GL_LINES);
+	//	//float c = 0.2f;
+	//	//glVertex3d(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
+	//	//glVertex3d(h_gridPos[i].x + h_gridVel[i].x * c, h_gridPos[i].y + h_gridVel[i].y * c, h_gridPos[i].z + h_gridVel[i].z * c);
+	//	//glEnd();
+
+
+
+	//	if (h_gridPress[i] == 0)
+	//		continue;
+	//	REAL3 color = ScalarToColor(h_gridPress[i] * 10);
+	//	glColor3f(color.x, color.y, color.z);
+
+	//	//// Draw Solid Sphere
+	//	//glColor3f(0.0f, 0.0f, 1.0f);
+	//	//glPushMatrix();
+	//	//glTranslatef(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
+
+	//	////glutSolidSphere(0.1/_gridRes, 20, 20);
+	//	//glutWireSphere(0.3 / _gridRes, 20, 20);
+
+	//	//glColor3f(1.0f, 1.0f, 1.0f);
+	//	//glPopMatrix();
+
+	//	glPointSize(15.0);
+	//	glBegin(GL_POINTS);
+	//	glVertex3d(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
+	//	glEnd();
+	//}
+
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();

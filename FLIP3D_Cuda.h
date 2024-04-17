@@ -50,6 +50,9 @@ public:		//Device
 	Dvector<REAL> d_Dens;
 
 	Dvector<BOOL> d_Flag;
+	Dvector<REAL3> d_gridPos;
+	Dvector<REAL3> d_gridVel;
+	Dvector<REAL> d_gridPress;
 
 public:		//Hash
 	Dvector<uint> d_GridHash;
@@ -70,11 +73,14 @@ public:		//Host
 	vector<REAL> h_Dens;
 	
 	vector<BOOL> h_Flag;
+	vector<REAL3> h_gridPos;
+	vector<REAL3> h_gridVel;
+	vector<REAL> h_gridPress;
 public:
 	FLIPGRID* _grid;
 
 public:
-	uint _iterations = 200u;
+	uint _iterations = 100u;
 	uint _numParticles;
 	uint _gridRes;
 
