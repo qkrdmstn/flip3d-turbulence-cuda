@@ -638,19 +638,19 @@ void FLIP3D_Cuda::draw(void)
 		//glVertex3d(position.x, position.y, position.z);
 		//glEnd();
 
-		////Visualize Level
-		//if (content == CONTENT_WALL)
-		//	continue;
-		//REAL3 color = ScalarToColor(levelSet);
-		//glColor3f(color.x, color.y, color.z);
+		//Visualize Level
+		if (content == CONTENT_WALL || content == CONTENT_AIR)
+			continue;
+		REAL3 color = ScalarToColor(abs(levelSet) * 0.1);
+		glColor3f(color.x, color.y, color.z);
 
-		//if (content == CONTENT_FLUID)
-		//	glPointSize(15.0);
-		//else if (content == CONTENT_AIR)
-		//	glPointSize(2.0);
-		//glBegin(GL_POINTS);
-		//glVertex3d(position.x, position.y, position.z);
-		//glEnd();
+		if (content == CONTENT_FLUID)
+			glPointSize(15.0);
+		else if (content == CONTENT_AIR)
+			glPointSize(2.0);
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
 
 
 		////Visualize Content

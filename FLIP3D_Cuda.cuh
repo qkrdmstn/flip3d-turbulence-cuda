@@ -506,7 +506,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
 
-#if 0
+#if 1
 	uint thisContent = volumes.content.readSurface<uint>(x, y, z);
 	REAL thisPress = volumes.press.readSurface<REAL>(x, y, z);
 	REAL thisDensity = volumes.density.readSurface<REAL>(x, y, z);
