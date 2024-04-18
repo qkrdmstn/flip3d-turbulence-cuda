@@ -82,6 +82,7 @@ __global__ void ResetCell_D(VolumeCollection volumes, uint gridRes) {
 	volumes.hasVel.writeSurface<uint4>(make_uint4(0, 0, 0, 0), x, y, z);
 	volumes.vel.writeSurface<REAL4>(make_REAL4(0, 0, 0, 0), x, y, z);
 	volumes.velSave.writeSurface<REAL4>(make_REAL4(0, 0, 0, 0), x, y, z);
+	volumes.density.writeSurface<REAL>(0, x, y, z);
 	//volumes.press.writeSurface<REAL>(0.0, x, y, z);
 }
 
@@ -367,7 +368,7 @@ __global__ void ComputeGridDensity_D(VolumeCollection volumes, REAL3* pos, uint*
 
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
-	if (volumes.content.readSurface<uint>(x,y,z) == CONTENT_WALL) {
+	if (volumes.content.readSurface<uint>(x,y,z) == CONTENT_WALL || volumes.content.readSurface<uint>(x, y, z) == CONTENT_AIR) {
 		volumes.density.writeSurface<REAL>(1.0f, x, y, z);
 		return;
 	}
@@ -491,8 +492,8 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes, RE
 	newPress /= centerCoeff;
 	//newPress *= 0.05;
 
-	int i = x * (gridRes * gridRes) + y*gridRes + z;
-	gridPress[i] = newPress;
+	//int i = x * (gridRes * gridRes) + y*gridRes + z;
+	//gridPress[i] = newPress;
 	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
 
@@ -505,7 +506,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
 
-#if 1
+#if 0
 	uint thisContent = volumes.content.readSurface<uint>(x, y, z);
 	REAL thisPress = volumes.press.readSurface<REAL>(x, y, z);
 	REAL thisDensity = volumes.density.readSurface<REAL>(x, y, z);
@@ -599,7 +600,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetX) * volumes.press.readSurface<REAL>(x - 1, y, z);
 			pressX = levelSetX < 0.0 ? volumes.press.readSurface<REAL>(x - 1, y, z) : levelSetX / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
 		}
-		newVel.x = curVel.x - ((press - pressX) / (dens * cellSize));
+		newVel.x = curVel.x - ((press - pressX) / (dens ));
 		hasVelocity.x = true;
 	}
 
@@ -612,7 +613,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetY) * volumes.press.readSurface<REAL>(x, y - 1 , z);
 			pressY = levelSetY < 0.0 ? volumes.press.readSurface<REAL>(x, y - 1, z) : levelSetY / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
 		}
-		newVel.y = curVel.y - ((press - pressY) / (dens * cellSize));
+		newVel.y = curVel.y - ((press - pressY) / (dens));
 		hasVelocity.y = true;
 	}
 
@@ -625,7 +626,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 			press = levelSet < 0.0 ? volumes.press.readSurface<REAL>(x, y, z) : levelSet / min(0.001f, levelSetZ) * volumes.press.readSurface<REAL>(x, y, z - 1);
 			pressZ = levelSetZ < 0.0 ? volumes.press.readSurface<REAL>(x, y, z - 1) : levelSetZ / min(0.00001f, levelSet) * volumes.press.readSurface<REAL>(x, y, z);
 		}
-		newVel.z = curVel.z - ((press - pressZ) / (dens * cellSize));
+		newVel.z = curVel.z - ((press - pressZ) / (dens ));
 		hasVelocity.z = true;
 	}
 
@@ -1049,7 +1050,7 @@ __global__ void FindCellStart_D(uint* gridHash, uint* cellStart, uint* cellEnd, 
 	}
 }
 
-__global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* gridPos, REAL3* gridVel, REAL* gridPress, uint* gridContent)
+__global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* gridPos, REAL3* gridVel, REAL* gridPress, REAL* gridDens, REAL* gridLevelSet, uint* gridContent)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1066,9 +1067,17 @@ __global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* g
 	REAL4 vel = volumes.vel.readSurface<REAL4>(x, y, z);
 	gridVel[index] = make_REAL3(vel.x, vel.y, vel.z);
 
-	//REAL press = volumes.press.readSurface<REAL>(x, y, z);
-	//gridPress[index] = press;
+	REAL press = volumes.press.readSurface<REAL>(x, y, z);
+	gridPress[index] = press;
+
+	REAL dens = volumes.density.readSurface<REAL>(x, y, z);
+	gridDens[index] = dens;
+
+	REAL levelSet = volumes.levelSet.readSurface<REAL>(x, y, z);
+	gridLevelSet[index] = levelSet;
 
 	uint content = volumes.content.readSurface<uint>(x, y, z);
 	gridContent[index] = content;
+
+	
 }

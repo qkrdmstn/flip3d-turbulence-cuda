@@ -29,6 +29,8 @@ void FLIP3D_Cuda::Init(void)
 	h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
 	h_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
 	h_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+	h_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 	h_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
 
 	InitDeviceMem();
@@ -482,6 +484,8 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
 	d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
 	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
+	d_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDens.memset(0);
+	d_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridLevelSet.memset(0);
 	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 }
 
@@ -506,7 +510,10 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_gridPos.free();
 	d_gridVel.free();
 	d_gridPress.free();
+	d_gridDens.free();
+	d_gridLevelSet.free();
 	d_gridContent.free();
+
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
@@ -525,6 +532,8 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_gridPos.copyFromHost(h_gridPos);
 	d_gridVel.copyFromHost(h_gridVel);
 	d_gridPress.copyFromHost(h_gridPress);
+	d_gridDens.copyFromHost(h_gridDens);
+	d_gridLevelSet.copyFromHost(h_gridLevelSet);
 	d_gridContent.copyFromHost(h_gridContent);
 }
 
@@ -544,12 +553,14 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_gridPos.copyToHost(h_gridPos);
 	d_gridVel.copyToHost(h_gridVel);
 	d_gridPress.copyToHost(h_gridPress);
+	d_gridDens.copyToHost(h_gridDens);
+	d_gridLevelSet.copyToHost(h_gridLevelSet);
 	d_gridContent.copyToHost(h_gridContent);
 }
 
 void FLIP3D_Cuda::gridValueVisualize(void)
 {
-	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridContent());
+	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridContent());
 }
 
 void FLIP3D_Cuda::draw(void)
@@ -569,15 +580,15 @@ void FLIP3D_Cuda::draw(void)
 		//}
 		
 		////////cout << h_Dens[i] << endl;
-		//REAL3 color = ScalarToColor(h_Dens[i]);
-		//glColor3f(color.x, color.y, color.z);
+		REAL3 color = ScalarToColor(h_Dens[i]);
+		glColor3f(color.x, color.y, color.z);
 
 		if (h_Type[i] == WALL) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		else
-			glColor3f(0.0f, 1.0f, 1.0f);
+		//else
+		//	glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
 
 
@@ -589,43 +600,60 @@ void FLIP3D_Cuda::draw(void)
 
 	for (uint i = 0u; i < _gridRes * _gridRes * _gridRes; i++)
 	{
+		REAL3 position = h_gridPos[i];
+		REAL3 velocity = h_gridVel[i];
+		REAL pressure = h_gridPress[i];
+		REAL density = h_gridDens[i];
+		REAL levelSet = h_gridLevelSet[i];
+		uint content = h_gridContent[i];
+
 		//glColor3f(1.0f, 1.0f, 1.0f);
 		//glLineWidth(1.0f);
 		//glBegin(GL_LINES);
 		//float c = 0.2f;
-		//glVertex3d(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
-		//glVertex3d(h_gridPos[i].x + h_gridVel[i].x * c, h_gridPos[i].y + h_gridVel[i].y * c, h_gridPos[i].z + h_gridVel[i].z * c);
+		//glVertex3d(position.x, position.y, position.z);
+		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
 		//glEnd();
 
 
-		//Visualize Pressure
-		if (h_gridPress[i] == 0)
-			continue;
-		REAL3 color = ScalarToColor(h_gridPress[i] * 10);
-		glColor3f(color.x, color.y, color.z);
+		////Visualize Pressure
+		//if (pressure == 0)
+		//	continue;
+		//REAL3 color = ScalarToColor(pressure * 10);
+		//glColor3f(color.x, color.y, color.z);
 
-		//// Draw Solid Sphere
-		//glColor3f(0.0f, 0.0f, 1.0f);
-		//glPushMatrix();
-		//glTranslatef(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
+		//glPointSize(15.0);
+		//glBegin(GL_POINTS);
+		//glVertex3d(position.x, position.y, position.z);
+		//glEnd();
 
-		////glutSolidSphere(0.1/_gridRes, 20, 20);
-		//glutWireSphere(0.3 / _gridRes, 20, 20);
+		//////Visualize Dens
+		//if (density == 0 || content == CONTENT_WALL || content == CONTENT_AIR)
+		//	continue;
+		//REAL3 color = ScalarToColor(density);
+		//glColor3f(color.x, color.y, color.z);
 
-		//glColor3f(1.0f, 1.0f, 1.0f);
-		//glPopMatrix();
+		//glPointSize(15.0);
+		//glBegin(GL_POINTS);
+		//glVertex3d(position.x, position.y, position.z);
+		//glEnd();
 
-		glPointSize(15.0);
-		glBegin(GL_POINTS);
-		glVertex3d(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
-		glEnd();
+		////Visualize Level
+		//if (content == CONTENT_WALL)
+		//	continue;
+		//REAL3 color = ScalarToColor(levelSet);
+		//glColor3f(color.x, color.y, color.z);
+
+		//if (content == CONTENT_FLUID)
+		//	glPointSize(15.0);
+		//else if (content == CONTENT_AIR)
+		//	glPointSize(2.0);
+		//glBegin(GL_POINTS);
+		//glVertex3d(position.x, position.y, position.z);
+		//glEnd();
 
 
 		////Visualize Content
-		//uint content = h_gridContent[i];
-		////if (A[i][j][k] == WALL)
-		//	//	continue;
-
 		//if (content == CONTENT_FLUID) {
 		//	//continue;
 		//	glColor3f(0, 0, 1);
@@ -635,7 +663,7 @@ void FLIP3D_Cuda::draw(void)
 		//else if (content == CONTENT_AIR) {
 		//	//continue;
 		//	glColor3f(0, 1, 0);
-		//	glPointSize(2.0);
+		//	glPointSize(10.0);
 
 		//}
 		//else if (content == CONTENT_WALL) {
@@ -644,8 +672,10 @@ void FLIP3D_Cuda::draw(void)
 		//	glPointSize(1.0);
 		//}
 
+		//if (position.y > 0.5)
+		//	continue;
 		//glBegin(GL_POINTS);
-		//glVertex3d(h_gridPos[i].x, h_gridPos[i].y, h_gridPos[i].z);
+		//glVertex3d(position.x, position.y, position.z);
 		//glEnd();
 
 	}
