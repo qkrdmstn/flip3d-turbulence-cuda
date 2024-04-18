@@ -225,7 +225,6 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 
 	uint neighHash = calcGridHash(gridPos, gridRes);
 	uint startIdx = cellStart[neighHash];
-
 	if (startIdx != 0xffffffff)
 	{
 		uint endIdx = cellEnd[neighHash];
@@ -235,10 +234,9 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 			
 			REAL3 dist = centerPos - pos[sortedIdx];
 			REAL d2 = LengthSquared(dist);
-			REAL maxDist = cellSize * 0.5;
+			REAL maxDist = cellSize * 0.15;
 			if (d2 > maxDist * maxDist)
 				continue;
-
 			if (type[sortedIdx] == WALL) {
 				c = CONTENT_WALL;
 			}
@@ -246,6 +244,8 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 		if (c != CONTENT_WALL)
 		{
 			REAL levelSet = LevelSet(gridPos, pos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes);
+			//REAL levelSet = - 2;
+
 			if (levelSet < 0.0)
 				c = CONTENT_FLUID;
 			else
@@ -290,8 +290,6 @@ __global__ void EnforceBoundary_D(VolumeCollection volumes, uint gridRes)
 	}
 	if (y < gridRes && y>0 && WallCheck(volumes.content.readSurface<uint>(x, y, z)) * WallCheck(volumes.content.readSurface<uint>(x, y - 1, z)) < 0)
 	{
-		//if(y != 1 && y != gridRes-1)
-		//	printf("%d %d %d chk: %d %d \n", x, y, z, volumes.content.readSurface<uint>(x, y, z), volumes.content.readSurface<uint>(x, y - 1, z));
 		velocity.y = 0.0;
 	}
 	if (z < gridRes && z>0 && WallCheck(volumes.content.readSurface<uint>(x, y, z)) * WallCheck(volumes.content.readSurface<uint>(x, y, z - 1)) < 0)
@@ -423,6 +421,8 @@ __global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* 
 	REAL cellSize = 1.0 / gridRes;
 	if (volumes.content.readSurface<uint>(x, y, z) == CONTENT_FLUID)
 	{
+		REAL thisDensity = volumes.density.readTexture<REAL>(x, y, z);
+
 		REAL4 curVel = volumes.vel.readSurface<REAL4>(x, y, z);
 		REAL4 rightVel = volumes.vel.readSurface<REAL4>(x + 1, y, z);
 		REAL4 upVel = volumes.vel.readSurface<REAL4>(x, y + 1, z);
@@ -479,53 +479,20 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes, RE
 	REAL RHS = -thisDiv * thisDensity;
 
 	REAL newPress = 0.0;
-	REAL centerCoeff = 0.0;
+	REAL centerCoeff = 6.0;
 
-	uint rightContent = volumes.content.readTexture<uint>(x + 1, y, z);
-	REAL rightPress = volumes.press.readTexture<REAL>(x + 1, y, z);
-	newPress += rightPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
-	uint leftContent = volumes.content.readTexture<uint>(x - 1, y, z);
-	REAL leftPress = volumes.press.readTexture<REAL>(x - 1, y, z);
-	newPress += leftPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
-	uint upContent = volumes.content.readTexture<uint>(x, y + 1, z);
-	REAL upPress = volumes.press.readTexture<REAL>(x, y + 1, z);
-	newPress += upPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
-	uint downContent = volumes.content.readTexture<uint>(x, y - 1, z);
-	REAL downPress = volumes.press.readTexture<REAL>(x, y - 1, z);
-	newPress += downPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
-	uint frontContent = volumes.content.readTexture<uint>(x, y, z + 1);
-	REAL frontPress = volumes.press.readTexture<REAL>(x, y, z + 1);
-	newPress += frontPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
-	uint backContent = volumes.content.readTexture<uint>(x, y, z - 1);
-	REAL backPress = volumes.press.readTexture<REAL>(x, y, z - 1);
-	newPress += backPress;
-	if (rightContent != CONTENT_WALL)
-		centerCoeff++;
-
+	newPress += volumes.press.readTexture<REAL>(x + 1, y, z);
+	newPress += volumes.press.readTexture<REAL>(x - 1, y, z);
+	newPress += volumes.press.readTexture<REAL>(x, y + 1, z);
+	newPress += volumes.press.readTexture<REAL>(x, y - 1, z);
+	newPress += volumes.press.readTexture<REAL>(x, y, z + 1);
+	newPress += volumes.press.readTexture<REAL>(x, y, z - 1);
 	newPress += RHS;
-	newPress /= 6.0;
+	newPress /= centerCoeff;
+	//newPress *= 0.05;
 
-	//if (centerCoeff > 0.0)
-	//	newPress /= centerCoeff;
-	//else
-	//	newPress = 0.0;
-	int index = x * (gridRes * gridRes) + y * (gridRes)+z;
-	gridPress[index] = newPress;
+	int i = x * (gridRes * gridRes) + y*gridRes + z;
+	gridPress[i] = newPress;
 	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
 
@@ -537,6 +504,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
+
 #if 1
 	uint thisContent = volumes.content.readSurface<uint>(x, y, z);
 	REAL thisPress = volumes.press.readSurface<REAL>(x, y, z);
@@ -545,6 +513,11 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 	REAL4 curVel = volumes.vel.readSurface<REAL4>(x, y, z);
 	REAL4 newVel = make_REAL4(0, 0, 0, 0);
 	uint4 hasVelocity = make_uint4(0, 0, 0, 0);
+
+	//if (thisContent == CONTENT_AIR) {
+	//	volumes.vel.writeSurface<REAL4>(newVel, x, y, z);
+	//	return;
+	//}
 
 	REAL densityUsed;
 	if (x > 0) {
@@ -663,7 +636,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 	volumes.vel.writeSurface<REAL4>(newVel, x, y, z);
 }
 
-__global__ void ExtrapolateVelocity_D(VolumeCollection volumes, uint gridRes, REAL3* gridPos, REAL3* gridVel)
+__global__ void ExtrapolateVelocity_D(VolumeCollection volumes, uint gridRes)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -868,13 +841,6 @@ __global__ void ExtrapolateVelocity_D(VolumeCollection volumes, uint gridRes, RE
 		}
 	}
 
-
-	REAL cellSize = 1.0 / gridRes;
-	REAL3 centerPos = make_REAL3(x + 0.5, y + 0.5, z + 0.5) * cellSize;
-	int index = x * (gridRes * gridRes) + y * (gridRes)+z;
-	gridVel[index] = make_REAL3(thisNewVelocity.x, thisNewVelocity.y, thisNewVelocity.z);
-	gridPos[index] = make_REAL3(centerPos.x, centerPos.y, centerPos.z);
-
 	volumes.hasVel.writeSurface<uint4>(thisHasVelocity, x, y, z);
 	volumes.vel.writeSurface<REAL4>(thisNewVelocity, x, y, z);
 }
@@ -1009,11 +975,6 @@ __global__ void TrasnferToParticle_D(VolumeCollection volumes, uint gridRes, REA
 }
 
 
-
-
-
-
-
 __global__ void AdvecParticle_D(REAL3* beforePos, REAL3* curPos, REAL3* vel, uint* type, uint gridRes, uint numParticles, REAL dt)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -1086,4 +1047,28 @@ __global__ void FindCellStart_D(uint* gridHash, uint* cellStart, uint* cellEnd, 
 			cellEnd[hash] = idx + 1;
 		}
 	}
+}
+
+__global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* gridPos, REAL3* gridVel, REAL* gridPress, uint* gridContent)
+{
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint z = blockIdx.z * blockDim.z + threadIdx.z;
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
+
+	REAL cellSize = 1.0 / gridRes;
+	REAL3 centerPos = make_REAL3(x + 0.5, y + 0.5, z + 0.5) * cellSize;
+	int index = x * (gridRes * gridRes) + y * (gridRes)+z;
+
+	gridPos[index] = make_REAL3(centerPos.x, centerPos.y, centerPos.z);
+
+	REAL4 vel = volumes.vel.readSurface<REAL4>(x, y, z);
+	gridVel[index] = make_REAL3(vel.x, vel.y, vel.z);
+
+	REAL press = volumes.press.readSurface<REAL>(x, y, z);
+	gridPress[index] = press;
+
+	uint content = volumes.content.readSurface<uint>(x, y, z);
+	gridContent[index] = content;
 }

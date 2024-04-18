@@ -50,9 +50,12 @@ public:		//Device
 	Dvector<REAL> d_Dens;
 
 	Dvector<BOOL> d_Flag;
+
+	//grid visualize
 	Dvector<REAL3> d_gridPos;
 	Dvector<REAL3> d_gridVel;
 	Dvector<REAL> d_gridPress;
+	Dvector<uint> d_gridContent;
 
 public:		//Hash
 	Dvector<uint> d_GridHash;
@@ -73,9 +76,12 @@ public:		//Host
 	vector<REAL> h_Dens;
 	
 	vector<BOOL> h_Flag;
+
+	//grid visualize
 	vector<REAL3> h_gridPos;
 	vector<REAL3> h_gridVel;
 	vector<REAL> h_gridPress;
+	vector<uint> h_gridContent;
 public:
 	FLIPGRID* _grid;
 
@@ -151,6 +157,7 @@ public:		//Cuda
 	}
 
 public: 
+	void gridValueVisualize(void);
 	void draw(void);
 	REAL3 ScalarToColor(double val);
 };
