@@ -234,7 +234,7 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 			
 			REAL3 dist = centerPos - pos[sortedIdx];
 			REAL d2 = LengthSquared(dist);
-			REAL maxDist = cellSize * 0.15;
+			REAL maxDist = cellSize * 0.5;
 			if (d2 > maxDist * maxDist)
 				continue;
 			if (type[sortedIdx] == WALL) {
@@ -1066,8 +1066,8 @@ __global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* g
 	REAL4 vel = volumes.vel.readSurface<REAL4>(x, y, z);
 	gridVel[index] = make_REAL3(vel.x, vel.y, vel.z);
 
-	REAL press = volumes.press.readSurface<REAL>(x, y, z);
-	gridPress[index] = press;
+	//REAL press = volumes.press.readSurface<REAL>(x, y, z);
+	//gridPress[index] = press;
 
 	uint content = volumes.content.readSurface<uint>(x, y, z);
 	gridContent[index] = content;

@@ -549,7 +549,7 @@ void FLIP3D_Cuda::CopyToHost(void)
 
 void FLIP3D_Cuda::gridValueVisualize(void)
 {
-	//GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridContent());
+	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridContent());
 }
 
 void FLIP3D_Cuda::draw(void)
@@ -599,8 +599,8 @@ void FLIP3D_Cuda::draw(void)
 
 
 		//Visualize Pressure
-		//if (h_gridPress[i] == 0)
-		//	continue;
+		if (h_gridPress[i] == 0)
+			continue;
 		REAL3 color = ScalarToColor(h_gridPress[i] * 10);
 		glColor3f(color.x, color.y, color.z);
 
