@@ -6,6 +6,7 @@
 namespace cg = cooperative_groups;
 __device__ uint s = 6;
 #define FOR_NEIGHBOR(n) for( int z=-n; z<=n; z++ ) for( int y=-n; y<=n; y++ ) for( int x=-n; x<=n; x++ ) {
+#define FOR_NEIGHBOR_WALL(n) for( int z=-n; z<=n-1; z++ ) for( int y=-n; y<=n-1; y++ ) for( int x=-n; x<=n-1; x++ ) {
 #define END_FOR }
 
 __device__ REAL SmoothKernel(REAL r2, REAL h)
@@ -53,8 +54,7 @@ __device__ REAL LevelSet(int3 gridPos, REAL3* pos, uint* type, REAL* dens, uint*
 
 			REAL3 dist = pos[sortedIdx] - centerPos;
 			REAL d2 = LengthSquared(dist);
-			REAL maxDist = cellSize * 0.5;
-			if (d2 > maxDist * maxDist)
+			if (d2 > cellSize * cellSize)
 				continue;
 
 			if (type[sortedIdx] == FLUID)
@@ -160,17 +160,20 @@ __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* ve
 
 	int cellCount = (gridRes) * (gridRes) * (gridRes);
 	REAL cellPhysicalSize = 1.0 / gridRes;
-
-	REAL3 xVelocityPos = make_REAL3(gridPos.x, (gridPos.y + 0.5), (gridPos.z + 0.5)) * cellPhysicalSize;
-	REAL3 yVelocityPos = make_REAL3((gridPos.x + 0.5), gridPos.y, (gridPos.z + 0.5)) * cellPhysicalSize;
-	REAL3 zVelocityPos = make_REAL3((gridPos.x + 0.5), (gridPos.y + 0.5), gridPos.z) * cellPhysicalSize;
+	
+	REAL3 xVelocityPos = make_REAL3(gridPos.x, (gridPos.y + 0.5), (gridPos.z + 0.5));
+	REAL3 yVelocityPos = make_REAL3((gridPos.x + 0.5), gridPos.y, (gridPos.z + 0.5));
+	REAL3 zVelocityPos = make_REAL3((gridPos.x + 0.5), (gridPos.y + 0.5), gridPos.z);
 
 	REAL4 velocity = make_REAL4(0, 0, 0, 0);
 	REAL4 weight = make_REAL4(0, 0, 0, 0);
 
-	FOR_NEIGHBOR(2) {
+	FOR_NEIGHBOR_WALL(3) {
 
 		int3 neighbourPos = make_int3(gridPos.x + x, gridPos.y + y, gridPos.z + z);
+
+		//if (gridPos.x < 0 || gridPos.x > gridRes - 1 || gridPos.y < 0 || gridPos.y > gridRes - 1 || gridPos.z < 0 || gridPos.z > gridRes - 1)
+		//	continue;
 		uint neighHash = calcGridHash(neighbourPos, gridRes);
 		uint startIdx = cellStart[neighHash];
 
@@ -185,11 +188,17 @@ __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* ve
 					continue;
 
 				REAL3 neighborPos = pos[sortedIdx];
-				REAL3 neighborVel = vel[sortedIdx];
+				REAL x = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.x));
+				REAL y = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.y));
+				REAL z = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.z));
+				REAL3 pos = make_REAL3(x, y, z);
 
-				REAL weightX = mass[sortedIdx] * SharpKernel(LengthSquared(neighborPos - xVelocityPos), 1.4);
-				REAL weightY = mass[sortedIdx] * SharpKernel(LengthSquared(neighborPos - yVelocityPos), 1.4);
-				REAL weightZ = mass[sortedIdx] * SharpKernel(LengthSquared(neighborPos - zVelocityPos), 1.4);
+				REAL3 neighborVel = vel[sortedIdx];
+				REAL neighborMass = mass[sortedIdx];
+				
+				REAL weightX = neighborMass * SharpKernel(LengthSquared(pos - xVelocityPos), 1.4);
+				REAL weightY = neighborMass * SharpKernel(LengthSquared(pos - yVelocityPos), 1.4);
+				REAL weightZ = neighborMass * SharpKernel(LengthSquared(pos - zVelocityPos), 1.4);
 
 				velocity.x += weightX * neighborVel.x;
 				velocity.y += weightY * neighborVel.y;
@@ -235,8 +244,7 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 			
 			REAL3 dist = pos[sortedIdx] - centerPos;
 			REAL d2 = LengthSquared(dist);
-			REAL maxDist = cellSize * 0.5;
-			if (d2 > maxDist * maxDist)
+			if (d2 > cellSize * cellSize)
 				continue;
 			if (type[sortedIdx] == WALL) {
 				volumes.content.writeSurface<uint>(CONTENT_WALL, gridPos.x, gridPos.y, gridPos.z);

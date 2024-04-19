@@ -2,6 +2,7 @@
 #define VEL 1
 #define PRESS 0
 #define LEVEL 0
+#define DENSITY 0
 #define CONTENT 0
 
 FLIP3D_Cuda::FLIP3D_Cuda()
@@ -25,7 +26,6 @@ void FLIP3D_Cuda::Init(void)
 	_numParticles = h_CurPos.size();
 	cout << _numParticles << endl;
 	ComputeWallNormal();
-
 
 	//For grid visualize
 	h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
@@ -326,22 +326,22 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::SolvePICFLIP()
 {
-	//ResetCell_kernel();
+	ResetCell_kernel();
 
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
 
-	//ComputeGridDensity_kernel();
-	//EnforceBoundary_kernel();
-	//ComputeDivergence_kernel();
+	ComputeGridDensity_kernel();
+	EnforceBoundary_kernel();
+	ComputeDivergence_kernel();
 	ComputeLevelSet_kernel();
-	//SolvePressureJacobi_kernel();
-	//ComputeVelocityWithPress_kernel();
-	//EnforceBoundary_kernel();
-	//ExtrapolateVelocity_kernel();
+	SolvePressureJacobi_kernel();
+	ComputeVelocityWithPress_kernel();
+	EnforceBoundary_kernel();
+	ExtrapolateVelocity_kernel();
 
 	SubtarctGrid_kernel();
-	//TrasnferToParticle_kernel();
+	TrasnferToParticle_kernel();
 
 	GridValueVisualize();
 }
@@ -427,13 +427,11 @@ void FLIP3D_Cuda::TrasnferToParticle_kernel()
 	TrasnferToParticle_D << <numBlocks, numThreads >> > (_grid->d_Volumes, _gridRes, d_CurPos(), d_Vel(), _numParticles);
 }
 
-
 void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
 {
 	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
 		(_grid->d_Volumes, d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
 }
-
 
 void FLIP3D_Cuda::SetHashTable_kernel(void)
 {
@@ -462,7 +460,6 @@ void FLIP3D_Cuda::FindCellStart_kernel(void)
 	FindCellStart_D << <numBlocks, numThreads >> >
 		(d_GridHash(), d_CellStart(), d_CellEnd(), _numParticles);
 }
-
 
 void FLIP3D_Cuda::InitDeviceMem(void)
 {
@@ -574,6 +571,10 @@ void FLIP3D_Cuda::draw(void)
 	glPointSize(2.0);
 	for (uint i = 0u; i < _numParticles; i++)
 	{
+		REAL3 position = h_CurPos[i];
+		REAL3 velocity = h_Vel[i];
+		BOOL flag = h_Flag[i];
+
 		//if (h_Flag[i])
 		//	glColor3f(1.0f, 0.0f, 0.0f);
 		//else
@@ -581,10 +582,6 @@ void FLIP3D_Cuda::draw(void)
 		//	//continue;
 		//	glColor4f(0.0f, 0.0f, 1.0f, 0.3);
 		//}
-		
-		////////cout << h_Dens[i] << endl;
-		REAL3 color = ScalarToColor(h_Dens[i]);
-		glColor3f(color.x, color.y, color.z);
 
 		if (h_Type[i] == WALL) {
 			continue;
@@ -594,10 +591,21 @@ void FLIP3D_Cuda::draw(void)
 		//	glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
 		cnt++;
+		////////cout << h_Dens[i] << endl;
+		REAL3 color = ScalarToColor(h_Dens[i]);
+		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
-		glVertex3d(h_CurPos[i].x, h_CurPos[i].y, h_CurPos[i].z);
+		glVertex3d(position.x, position.y, position.z);
 		glEnd();
+
+		//glColor3f(1.0f, 1.0f, 1.0f);
+		//glLineWidth(1.0f);
+		//glBegin(GL_LINES);
+		//float c = 0.2f;
+		//glVertex3d(position.x, position.y, position.z);
+		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
+		//glEnd();
 	}
 	//printf("cnt: %d\n", cnt);
 
@@ -611,6 +619,7 @@ void FLIP3D_Cuda::draw(void)
 		uint content = h_gridContent[i];
 
 #if VEL
+
 		glColor3f(1.0f, 1.0f, 1.0f);
 		glLineWidth(1.0f);
 		glBegin(GL_LINES);
@@ -631,7 +640,9 @@ void FLIP3D_Cuda::draw(void)
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
 		glEnd();
+#endif
 
+#if DENSITY
 		////Visualize Dens
 		if (density == 0 || content == CONTENT_WALL || content == CONTENT_AIR)
 			continue;
