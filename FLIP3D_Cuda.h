@@ -95,7 +95,7 @@ public:
 	uint _gridRes;
 
 	REAL _wallThick;
-	REAL _dens;
+	REAL _dens = 0.5;
 	REAL _maxDens = 92.9375;
 	REAL3 _externalForce = make_REAL3(0, 0, 0);
 
@@ -161,7 +161,7 @@ public:		//Cuda
 	}
 
 public: 
-	void gridValueVisualize(void);
+	void GridValueVisualize(void);
 	void draw(void);
 	REAL3 ScalarToColor(double val);
 };

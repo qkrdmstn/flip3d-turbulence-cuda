@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 
 float _zoom = 1.959998f; // 화면 확대,축소
 float _rot_x = 14.2f; // x축 회전
@@ -66,7 +66,7 @@ void Update(void)
 	if (_simulation) {
 #if SCREEN_CAPTURE
 		if (_frame <= 600) {
-			string path = "image\\FLIP only2\\FLIP" + to_string(_frame) + ".jpg";
+			string path = "image\\gridvisualize\\FLIP" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, 800, 800);
 		}

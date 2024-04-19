@@ -51,7 +51,7 @@ __device__ REAL LevelSet(int3 gridPos, REAL3* pos, uint* type, REAL* dens, uint*
 		{
 			uint sortedIdx = gridIdx[i];
 
-			REAL3 dist = centerPos - pos[sortedIdx];
+			REAL3 dist = pos[sortedIdx] - centerPos;
 			REAL d2 = LengthSquared(dist);
 			REAL maxDist = cellSize * 0.5;
 			if (d2 > maxDist * maxDist)
@@ -219,7 +219,7 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 
 	if (gridPos.x >= gridRes || gridPos.y >= gridRes || gridPos.z >= gridRes) return;
 
-	uint c = CONTENT_AIR;
+	volumes.content.writeSurface<uint>(CONTENT_AIR, gridPos.x, gridPos.y, gridPos.z);
 
 	REAL cellSize = 1.0 / gridRes;
 	REAL3 centerPos = make_REAL3(gridPos.x + 0.5, gridPos.y + 0.5, gridPos.z + 0.5) * cellSize;
@@ -233,31 +233,25 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 		{
 			uint sortedIdx = gridIdx[i];
 			
-			REAL3 dist = centerPos - pos[sortedIdx];
+			REAL3 dist = pos[sortedIdx] - centerPos;
 			REAL d2 = LengthSquared(dist);
 			REAL maxDist = cellSize * 0.5;
 			if (d2 > maxDist * maxDist)
 				continue;
 			if (type[sortedIdx] == WALL) {
-				c = CONTENT_WALL;
+				volumes.content.writeSurface<uint>(CONTENT_WALL, gridPos.x, gridPos.y, gridPos.z);
 			}
 		}
-		if (c != CONTENT_WALL)
+		if (volumes.content.readSurface<uint>(gridPos.x, gridPos.y, gridPos.z) != CONTENT_WALL)
 		{
 			REAL levelSet = LevelSet(gridPos, pos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes);
-			//REAL levelSet = - 2;
 
 			if (levelSet < 0.0)
-				c = CONTENT_FLUID;
+				volumes.content.writeSurface<uint>(CONTENT_FLUID, gridPos.x, gridPos.y, gridPos.z);
 			else
-				c = CONTENT_AIR;
+				volumes.content.writeSurface<uint>(CONTENT_AIR, gridPos.x, gridPos.y, gridPos.z);
 		}
 	}
-	//printf("%f\n", LevelSet(gridPos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes));
-	//printf("%d\n", c);
-	//if (c == CONTENT_WALL)
-	//	printf("a\n");
-	volumes.content.writeSurface<uint>(c, gridPos.x, gridPos.y, gridPos.z);
 }
 
 __device__ REAL WallCheck(uint type)
@@ -273,7 +267,7 @@ __global__ void EnforceBoundary_D(VolumeCollection volumes, uint gridRes)
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
 	uint z = blockIdx.z * blockDim.z + threadIdx.z;
 
-	if (x > gridRes || y > gridRes || z > gridRes) return;
+	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 	
 	REAL4 velocity = volumes.vel.readSurface<REAL4>(x, y, z);
 
@@ -458,7 +452,7 @@ __global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* ty
 	volumes.levelSet.writeSurface<REAL>(levelSet, x, y, z);
 }
 
-__global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes, REAL* gridPress)
+__global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -490,10 +484,7 @@ __global__ void SolvePressureJacobi_D(VolumeCollection volumes, uint gridRes, RE
 	newPress += volumes.press.readTexture<REAL>(x, y, z - 1);
 	newPress += RHS;
 	newPress /= centerCoeff;
-	//newPress *= 0.05;
 
-	//int i = x * (gridRes * gridRes) + y*gridRes + z;
-	//gridPress[i] = newPress;
 	volumes.press.writeSurface<REAL>(newPress, x, y, z);
 }
 
@@ -919,7 +910,9 @@ REAL3 GetLerpValueAtPoint(VolumeData data, REAL x, REAL y, REAL z, uint gridRes)
 }
 
 __device__
-REAL3 GetPointSaveVelocity(REAL3 physicalPos, REAL cellPhysicalSize, uint gridRes, VolumeCollection volume) {
+REAL3 GetPointSaveVelocity(REAL3 physicalPos,  uint gridRes, VolumeCollection volume) {
+	REAL cellPhysicalSize = 1.0 / gridRes;
+
 	REAL x = physicalPos.x / cellPhysicalSize;
 	REAL y = physicalPos.y / cellPhysicalSize;
 	REAL z = physicalPos.z / cellPhysicalSize;
@@ -934,7 +927,9 @@ REAL3 GetPointSaveVelocity(REAL3 physicalPos, REAL cellPhysicalSize, uint gridRe
 }
 
 __device__
-REAL3 GetPointAfterVelocity(REAL3 physicalPos, REAL cellPhysicalSize, uint gridRes, VolumeCollection volume) {
+REAL3 GetPointAfterVelocity(REAL3 physicalPos, uint gridRes, VolumeCollection volume) {
+	REAL cellPhysicalSize = 1.0 / gridRes;
+
 	REAL x = physicalPos.x / cellPhysicalSize;
 	REAL y = physicalPos.y / cellPhysicalSize;
 	REAL z = physicalPos.z / cellPhysicalSize;
@@ -953,10 +948,9 @@ __global__ void TrasnferToParticle_D(VolumeCollection volumes, uint gridRes, REA
 	uint index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= numParticles) return;
 
-	REAL cellSize = 1.0 / gridRes;
 	REAL3 position = pos[index];
-	REAL3 oldGridVel = GetPointSaveVelocity(position, cellSize, gridRes, volumes);
-	REAL3 newGridVel = GetPointAfterVelocity(position, cellSize, gridRes, volumes);
+	REAL3 oldGridVel = GetPointSaveVelocity(position, gridRes, volumes);
+	REAL3 newGridVel = GetPointAfterVelocity(position, gridRes, volumes);
 
 	REAL3 FLIP = vel[index] + oldGridVel;
 	REAL3 PIC = newGridVel;
@@ -975,8 +969,7 @@ __global__ void TrasnferToParticle_D(VolumeCollection volumes, uint gridRes, REA
 	//}
 }
 
-
-__global__ void AdvecParticle_D(REAL3* beforePos, REAL3* curPos, REAL3* vel, uint* type, uint gridRes, uint numParticles, REAL dt)
+__global__ void AdvecParticle_D(VolumeCollection volumes, REAL3* beforePos, REAL3* curPos, REAL3* vel, uint* type, uint gridRes, uint numParticles, REAL dt)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numParticles)
@@ -985,7 +978,9 @@ __global__ void AdvecParticle_D(REAL3* beforePos, REAL3* curPos, REAL3* vel, uin
 		return;
 
 	beforePos[idx] = curPos[idx];
-	curPos[idx] += dt * vel[idx];
+
+	REAL3 lerpVel = GetPointAfterVelocity(curPos[idx], gridRes, volumes);
+	curPos[idx] += dt * lerpVel;
 
 	REAL wallThick = 1.0 / gridRes;
 	curPos[idx].x = max(wallThick, min((REAL)(1.0 - wallThick), curPos[idx].x));

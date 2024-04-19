@@ -1,4 +1,8 @@
 #include "FLIP3D_Cuda.cuh"
+#define VEL 1
+#define PRESS 0
+#define LEVEL 0
+#define CONTENT 0
 
 FLIP3D_Cuda::FLIP3D_Cuda()
 {
@@ -14,8 +18,6 @@ void FLIP3D_Cuda::Init(void)
 {
 	_wallThick = 1.0 / _gridRes;
 	_cellPhysicalSize = 1.0 / _gridRes;
-	_dens = 0.5;
-	_maxDens = 92.9375;
 
 	_grid = new FLIPGRID(_gridRes, _cellPhysicalSize);
 
@@ -329,18 +331,19 @@ void FLIP3D_Cuda::SolvePICFLIP()
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
 
-	ComputeGridDensity_kernel();
-	EnforceBoundary_kernel();
-	ComputeDivergence_kernel();
+	//ComputeGridDensity_kernel();
+	//EnforceBoundary_kernel();
+	//ComputeDivergence_kernel();
 	ComputeLevelSet_kernel();
-	SolvePressureJacobi_kernel();
-	ComputeVelocityWithPress_kernel();
-	EnforceBoundary_kernel();
-	ExtrapolateVelocity_kernel();
-	gridValueVisualize();
+	//SolvePressureJacobi_kernel();
+	//ComputeVelocityWithPress_kernel();
+	//EnforceBoundary_kernel();
+	//ExtrapolateVelocity_kernel();
 
 	SubtarctGrid_kernel();
-	TrasnferToParticle_kernel();
+	//TrasnferToParticle_kernel();
+
+	GridValueVisualize();
 }
 
 void FLIP3D_Cuda::ResetCell_kernel()
@@ -398,7 +401,7 @@ void FLIP3D_Cuda::SolvePressureJacobi_kernel()
 	for (int i = 0; i < _iterations; i++)
 	{
 		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
-			(_grid->d_Volumes, _gridRes, d_gridPress());
+			(_grid->d_Volumes, _gridRes);
 	}
 }
 
@@ -428,7 +431,7 @@ void FLIP3D_Cuda::TrasnferToParticle_kernel()
 void FLIP3D_Cuda::AdvectParticle_kernel(REAL dt)
 {
 	AdvecParticle_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> > 
-		(d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
+		(_grid->d_Volumes, d_BeforePos(), d_CurPos(), d_Vel(), d_Type(), _gridRes, _numParticles, dt);
 }
 
 
@@ -558,7 +561,7 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_gridContent.copyToHost(h_gridContent);
 }
 
-void FLIP3D_Cuda::gridValueVisualize(void)
+void FLIP3D_Cuda::GridValueVisualize(void)
 {
 	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridContent());
 }
@@ -590,13 +593,13 @@ void FLIP3D_Cuda::draw(void)
 		//else
 		//	glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
-
+		cnt++;
 
 		glBegin(GL_POINTS);
 		glVertex3d(h_CurPos[i].x, h_CurPos[i].y, h_CurPos[i].z);
 		glEnd();
 	}
-
+	//printf("cnt: %d\n", cnt);
 
 	for (uint i = 0u; i < _gridRes * _gridRes * _gridRes; i++)
 	{
@@ -607,39 +610,43 @@ void FLIP3D_Cuda::draw(void)
 		REAL levelSet = h_gridLevelSet[i];
 		uint content = h_gridContent[i];
 
-		//glColor3f(1.0f, 1.0f, 1.0f);
-		//glLineWidth(1.0f);
-		//glBegin(GL_LINES);
-		//float c = 0.2f;
-		//glVertex3d(position.x, position.y, position.z);
-		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
-		//glEnd();
+#if VEL
+		glColor3f(1.0f, 1.0f, 1.0f);
+		glLineWidth(1.0f);
+		glBegin(GL_LINES);
+		float c = 0.2f;
+		glVertex3d(position.x, position.y, position.z);
+		glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
+		glEnd();
+#endif
 
+#if PRESS
+		//Visualize Pressure
+		if (pressure == 0)
+			continue;
+		REAL3 color = ScalarToColor(pressure * 10);
+		glColor3f(color.x, color.y, color.z);
 
-		////Visualize Pressure
-		//if (pressure == 0)
-		//	continue;
-		//REAL3 color = ScalarToColor(pressure * 10);
-		//glColor3f(color.x, color.y, color.z);
+		glPointSize(15.0);
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
 
-		//glPointSize(15.0);
-		//glBegin(GL_POINTS);
-		//glVertex3d(position.x, position.y, position.z);
-		//glEnd();
+		////Visualize Dens
+		if (density == 0 || content == CONTENT_WALL || content == CONTENT_AIR)
+			continue;
+		REAL3 color = ScalarToColor(density);
+		glColor3f(color.x, color.y, color.z);
 
-		//////Visualize Dens
-		//if (density == 0 || content == CONTENT_WALL || content == CONTENT_AIR)
-		//	continue;
-		//REAL3 color = ScalarToColor(density);
-		//glColor3f(color.x, color.y, color.z);
+		glPointSize(15.0);
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
+#endif
 
-		//glPointSize(15.0);
-		//glBegin(GL_POINTS);
-		//glVertex3d(position.x, position.y, position.z);
-		//glEnd();
-
+#if LEVEL
 		//Visualize Level
-		if (content == CONTENT_WALL || content == CONTENT_AIR)
+		if (content == CONTENT_WALL )
 			continue;
 		REAL3 color = ScalarToColor(abs(levelSet) * 0.1);
 		glColor3f(color.x, color.y, color.z);
@@ -651,35 +658,34 @@ void FLIP3D_Cuda::draw(void)
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
 		glEnd();
+#endif
 
+#if CONTENT
+		//////Visualize Content
+		if (content == CONTENT_FLUID) {
+			//continue;
+			glColor3f(0, 0, 1);
+			glPointSize(15.0);
 
-		////Visualize Content
-		//if (content == CONTENT_FLUID) {
-		//	//continue;
-		//	glColor3f(0, 0, 1);
-		//	glPointSize(15.0);
+		}
+		else if (content == CONTENT_AIR) {
+			//continue;
+			glColor3f(0, 1, 0);
+			glPointSize(2.0);
 
-		//}
-		//else if (content == CONTENT_AIR) {
-		//	//continue;
-		//	glColor3f(0, 1, 0);
-		//	glPointSize(10.0);
+		}
+		else if (content == CONTENT_WALL) {
+			//continue;
+			glColor3f(1, 1, 1);
+			glPointSize(1.0);
+		}
 
-		//}
-		//else if (content == CONTENT_WALL) {
-		//	//continue;
-		//	glColor3f(1, 1, 1);
-		//	glPointSize(1.0);
-		//}
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
 
-		//if (position.y > 0.5)
-		//	continue;
-		//glBegin(GL_POINTS);
-		//glVertex3d(position.x, position.y, position.z);
-		//glEnd();
-
+#endif
 	}
-
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();
