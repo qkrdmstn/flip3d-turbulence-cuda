@@ -1,8 +1,9 @@
 #include "FLIP3D_Cuda.cuh"
-#define VEL 1
+#define VEL 0
 #define PRESS 0
 #define LEVEL 0
 #define DENSITY 0
+#define DIV 0
 #define CONTENT 0
 
 FLIP3D_Cuda::FLIP3D_Cuda()
@@ -33,6 +34,7 @@ void FLIP3D_Cuda::Init(void)
 	h_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
 	h_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 	h_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+	h_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 	h_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
 
 	InitDeviceMem();
@@ -457,7 +459,9 @@ void FLIP3D_Cuda::FindCellStart_kernel(void)
 {
 	uint numThreads, numBlocks;
 	ComputeGridSize(_numParticles, 128, numBlocks, numThreads);
-	FindCellStart_D << <numBlocks, numThreads >> >
+
+	uint smemSize = sizeof(uint) * (numThreads + 1);
+	FindCellStart_D << <numBlocks, numThreads, smemSize >> >
 		(d_GridHash(), d_CellStart(), d_CellEnd(), _numParticles);
 }
 
@@ -483,9 +487,10 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPos.memset(0);
 	d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
 	d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
-	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
 	d_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDens.memset(0);
 	d_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridLevelSet.memset(0);
+	d_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDiv.memset(0);
+	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
 	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 }
 
@@ -512,6 +517,7 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_gridPress.free();
 	d_gridDens.free();
 	d_gridLevelSet.free();
+	d_gridDiv.free();
 	d_gridContent.free();
 
 }
@@ -534,6 +540,7 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_gridPress.copyFromHost(h_gridPress);
 	d_gridDens.copyFromHost(h_gridDens);
 	d_gridLevelSet.copyFromHost(h_gridLevelSet);
+	d_gridDiv.copyFromHost(h_gridDiv);
 	d_gridContent.copyFromHost(h_gridContent);
 }
 
@@ -555,12 +562,13 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_gridPress.copyToHost(h_gridPress);
 	d_gridDens.copyToHost(h_gridDens);
 	d_gridLevelSet.copyToHost(h_gridLevelSet);
+	d_gridDiv.copyToHost(h_gridDiv);
 	d_gridContent.copyToHost(h_gridContent);
 }
 
 void FLIP3D_Cuda::GridValueVisualize(void)
 {
-	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridContent());
+	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridDiv(), d_gridContent());
 }
 
 void FLIP3D_Cuda::draw(void)
@@ -573,6 +581,8 @@ void FLIP3D_Cuda::draw(void)
 	{
 		REAL3 position = h_CurPos[i];
 		REAL3 velocity = h_Vel[i];
+		REAL density = h_Dens[i];
+		uint type = h_Type[i];
 		BOOL flag = h_Flag[i];
 
 		//if (h_Flag[i])
@@ -583,7 +593,7 @@ void FLIP3D_Cuda::draw(void)
 		//	glColor4f(0.0f, 0.0f, 1.0f, 0.3);
 		//}
 
-		if (h_Type[i] == WALL) {
+		if (type == WALL ) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
@@ -592,7 +602,7 @@ void FLIP3D_Cuda::draw(void)
 		//glColor3f(1.0, 1.0, 1.0);
 		cnt++;
 		////////cout << h_Dens[i] << endl;
-		REAL3 color = ScalarToColor(h_Dens[i]);
+		REAL3 color = ScalarToColor(density);
 		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
@@ -616,6 +626,7 @@ void FLIP3D_Cuda::draw(void)
 		REAL pressure = h_gridPress[i];
 		REAL density = h_gridDens[i];
 		REAL levelSet = h_gridLevelSet[i];
+		REAL divergence = h_gridDiv[i];
 		uint content = h_gridContent[i];
 
 #if VEL
@@ -631,7 +642,7 @@ void FLIP3D_Cuda::draw(void)
 
 #if PRESS
 		//Visualize Pressure
-		if (pressure == 0)
+		if (pressure == 0 || content == CONTENT_WALL)
 			continue;
 		REAL3 color = ScalarToColor(pressure * 10);
 		glColor3f(color.x, color.y, color.z);
@@ -660,6 +671,22 @@ void FLIP3D_Cuda::draw(void)
 		if (content == CONTENT_WALL )
 			continue;
 		REAL3 color = ScalarToColor(abs(levelSet) * 0.1);
+		glColor3f(color.x, color.y, color.z);
+
+		if (content == CONTENT_FLUID)
+			glPointSize(15.0);
+		else if (content == CONTENT_AIR)
+			glPointSize(2.0);
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
+#endif
+
+#if DIV
+		//Visualize Level
+		if (content == CONTENT_WALL)
+			continue;
+		REAL3 color = ScalarToColor(abs(divergence) * 0.1);
 		glColor3f(color.x, color.y, color.z);
 
 		if (content == CONTENT_FLUID)

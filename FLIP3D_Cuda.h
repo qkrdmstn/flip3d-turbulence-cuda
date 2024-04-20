@@ -57,6 +57,7 @@ public:		//Device
 	Dvector<REAL> d_gridPress;
 	Dvector<REAL> d_gridDens;
 	Dvector<REAL> d_gridLevelSet;
+	Dvector<REAL> d_gridDiv;
 	Dvector<uint> d_gridContent;
 
 public:		//Hash
@@ -85,6 +86,7 @@ public:		//Host
 	vector<REAL> h_gridPress;
 	vector<REAL> h_gridDens;
 	vector<REAL> h_gridLevelSet;
+	vector<REAL> h_gridDiv;
 	vector<uint> h_gridContent;
 public:
 	FLIPGRID* _grid;
