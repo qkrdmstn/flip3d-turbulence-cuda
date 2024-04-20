@@ -35,6 +35,42 @@ __device__ uint calcGridHash(int3 pos, uint gridRes)
 
 }
 
+__device__ REAL LevelSet(int3 gridPos, REAL3* pos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes, BOOL* flag)
+{
+	uint neighHash = calcGridHash(gridPos, gridRes);
+	uint startIdx = cellStart[neighHash];
+
+	REAL cellSize = 1.0 / gridRes;
+	REAL3 centerPos = make_REAL3(gridPos.x + 0.5, gridPos.y + 0.5, gridPos.z + 0.5) * cellSize;
+
+	REAL accm = 0.0;
+	if (startIdx != 0xffffffff)
+	{
+		uint endIdx = cellEnd[neighHash];
+		for (uint i = startIdx; i < endIdx; i++)
+		{
+			uint sortedIdx = gridIdx[i];
+
+			REAL3 dist = pos[sortedIdx] - centerPos;
+			REAL d2 = LengthSquared(dist);
+			if (d2 > cellSize * cellSize)
+				continue;
+
+			//if (gridPos.x == 30 && gridPos.y == 5 && gridPos.z == 15)
+			//{
+			//	flag[sortedIdx] = true;
+			//}
+
+			if (type[sortedIdx] == FLUID)
+				accm += dens[sortedIdx];
+			else
+				return 1.0;
+		}
+	}
+	REAL n0 = 1.0 / (densVal * densVal * densVal);
+	return 0.2 * n0 - accm;
+}
+
 __device__ REAL LevelSet(int3 gridPos, REAL3* pos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes)
 {
 	uint neighHash = calcGridHash(gridPos, gridRes);
@@ -55,6 +91,7 @@ __device__ REAL LevelSet(int3 gridPos, REAL3* pos, uint* type, REAL* dens, uint*
 			REAL d2 = LengthSquared(dist);
 			if (d2 > cellSize * cellSize)
 				continue;
+
 
 			if (type[sortedIdx] == FLUID)
 				accm += dens[sortedIdx];
@@ -369,10 +406,10 @@ __global__ void ComputeGridDensity_D(VolumeCollection volumes, REAL3* pos, uint*
 
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
-	if (volumes.content.readSurface<uint>(x,y,z) == CONTENT_WALL || volumes.content.readSurface<uint>(x, y, z) == CONTENT_AIR) {
-		volumes.density.writeSurface<REAL>(1.0f, x, y, z);
-		return;
-	}
+	//if (volumes.content.readSurface<uint>(x,y,z) == CONTENT_WALL /*|| volumes.content.readSurface<uint>(x, y, z) == CONTENT_AIR*/) {
+	//	volumes.density.writeSurface<REAL>(0.5f, x, y, z);
+	//	return;
+	//}
 
 	REAL cellSize = 1.0 / gridRes;
 	REAL3 centerPos = make_REAL3(x + 0.5, y + 0.5, z + 0.5) * cellSize;
@@ -381,31 +418,30 @@ __global__ void ComputeGridDensity_D(VolumeCollection volumes, REAL3* pos, uint*
 
 	REAL wsum = 0.0;
 	uint cnt = 0;
-	FOR_NEIGHBOR(1) {
 
-		int3 neighbourPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighbourPos, gridRes);
-		uint startIdx = cellStart[neighHash];
+	uint neighHash = calcGridHash(gridPos, gridRes);
+	uint startIdx = cellStart[neighHash];
 
-		if (startIdx != 0xffffffff)
+	if (startIdx != 0xffffffff)
+	{
+		uint endIdx = cellEnd[neighHash];
+		for (uint i = startIdx; i < endIdx; i++)
 		{
-			uint endIdx = cellEnd[neighHash];
-			for (uint i = startIdx; i < endIdx; i++)
-			{
-				uint sortedIdx = gridIdx[i];
+			uint sortedIdx = gridIdx[i];
 
-				if (type[sortedIdx] == WALL)
-					continue;
+			if (type[sortedIdx] == WALL)
+				continue;
 
-				REAL3 dist = pos[sortedIdx] - centerPos;
-				REAL d2 = LengthSquared(dist);
+			REAL3 dist = pos[sortedIdx] - centerPos;
+			REAL d2 = LengthSquared(dist);
+			if (d2 > cellSize * cellSize)
+				continue;
 
-				REAL w = mass[sortedIdx] * SmoothKernel(d2, 4.0 * densVal / gridRes);
-				wsum += w;
-				cnt++;
-			}
+			REAL w = mass[sortedIdx] * SmoothKernel(d2, 4.0 * densVal / gridRes);
+			wsum += w;
+			cnt++;
 		}
-	} END_FOR;
+	}
 	REAL dens = wsum / maxDens;
 	//printf("dens cal: %f cnt %d\n", dens, cnt);
 	volumes.density.writeSurface<REAL>(dens, x, y, z);
@@ -421,7 +457,7 @@ __global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* 
 
 	//Compute Divergence
 	REAL cellSize = 1.0 / gridRes;
-//	if (volumes.content.readSurface<uint>(x, y, z) == CONTENT_FLUID)
+	//if (volumes.content.readSurface<uint>(x, y, z) == CONTENT_FLUID)
 	{
 		REAL thisDensity = volumes.density.readTexture<REAL>(x, y, z);
 
@@ -430,21 +466,12 @@ __global__ void ComputeDivergence_D(VolumeCollection volumes, REAL* dens, uint* 
 		REAL4 upVel = volumes.vel.readSurface<REAL4>(x, y + 1, z);
 		REAL4 frontVel = volumes.vel.readSurface<REAL4>(x, y, z + 1);
 
-		REAL div = ((rightVel.x - curVel.x) + (upVel.y - curVel.y) + (frontVel.z - curVel.z));
+		REAL div = ((rightVel.x - curVel.x) + (upVel.y - curVel.y) + (frontVel.z - curVel.z)) * 1.9;
 		volumes.divergence.writeSurface<REAL>(div, x, y, z);
-
-		//if (x == s && y == s && z == s)
-		//{
-			//printf("div: %f \n", div);
-			//printf("curVel: %f %f %f\n", curVel.x, curVel.y, curVel.z);
-			//printf("rightVel: %f %f %f\n", rightVel.x, rightVel.y, rightVel.z);
-			//printf("upVel: %f %f %f\n", upVel.x, upVel.y, upVel.z);
-			//printf("frontVel: %f %f %f\n", frontVel.x, frontVel.y, frontVel.z);
-		//}
 	}
 }
 
-__global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes)
+__global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes, BOOL* flag)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -453,7 +480,7 @@ __global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* ty
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
 
 	int3 gridPos = make_int3(x, y, z);
-	REAL levelSet = LevelSet(gridPos, pos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes);
+	REAL levelSet = LevelSet(gridPos, pos, type, dens, gridHash, gridIdx, cellStart, cellEnd, densVal, gridRes, flag);
 
 	//printf("level: %f\n", levelSet);
 	volumes.levelSet.writeSurface<REAL>(levelSet, x, y, z);
@@ -513,7 +540,7 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 	uint4 hasVelocity = make_uint4(0, 0, 0, 0);
 
 	//if (thisContent == CONTENT_AIR) {
-	//	volumes.vel.writeSurface<REAL4>(newVel, x, y, z);
+	//	volumes.vel.writeSurface<REAL4>(curVel, x, y, z);
 	//	return;
 	//}
 

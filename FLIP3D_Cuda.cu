@@ -93,8 +93,8 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
-	//DamBreakTest();
+	//WaterDropTest();
+	DamBreakTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -389,7 +389,7 @@ void FLIP3D_Cuda::ComputeDivergence_kernel()
 
 void FLIP3D_Cuda::ComputeLevelSet_kernel()
 {
-	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
+	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes, d_Flag());
 }
 
 void FLIP3D_Cuda::ComputeGridDensity_kernel()
@@ -576,7 +576,7 @@ void FLIP3D_Cuda::draw(void)
 	int cnt = 0;
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
-	glPointSize(2.0);
+	glPointSize(1.0);
 	for (uint i = 0u; i < _numParticles; i++)
 	{
 		REAL3 position = h_CurPos[i];
@@ -590,20 +590,20 @@ void FLIP3D_Cuda::draw(void)
 		//else
 		//{
 		//	//continue;
-		//	glColor4f(0.0f, 0.0f, 1.0f, 0.3);
+		//	glColor3f(0.0f, 0.0f, 1.0f);
 		//}
 
 		if (type == WALL ) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		//else
-		//	glColor3f(0.0f, 1.0f, 1.0f);
+		else
+			glColor3f(0.0f, 1.0f, 1.0f);
 		//glColor3f(1.0, 1.0, 1.0);
 		cnt++;
-		////////cout << h_Dens[i] << endl;
-		REAL3 color = ScalarToColor(density);
-		glColor3f(color.x, color.y, color.z);
+		//////////cout << h_Dens[i] << endl;
+		//REAL3 color = ScalarToColor(density);
+		//glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
