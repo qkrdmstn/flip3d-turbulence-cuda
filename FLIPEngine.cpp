@@ -19,6 +19,8 @@ void	FLIPEngine::simulation(void)
 	_fluid->SolvePICFLIP();
 
 	_fluid->AdvectParticle_kernel(_dt);
+
+	_fluid->Correct_kernel(_dt);
 	_fluid->CopyToHost();
 
 	//if (_frame > 500)

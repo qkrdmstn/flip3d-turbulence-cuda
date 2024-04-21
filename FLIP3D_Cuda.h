@@ -124,7 +124,7 @@ public:		//Initialize
 	void WaterDropTest(void);
 	void DamBreakTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
-	void ComputeWallNormal(void);
+	void ComputeWallParticleNormal_kernel(void);
 
 public:		//Simulation
 	void ResetCell_kernel(void);
@@ -144,6 +144,7 @@ public:		//Simulation
 	void TrasnferToParticle_kernel(void);
 
 	void AdvectParticle_kernel(REAL dt);
+	void Correct_kernel(REAL dt);
 
 public:	//Hash
 	void SetHashTable_kernel(void);
