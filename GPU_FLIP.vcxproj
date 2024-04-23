@@ -20,11 +20,17 @@
     <ClInclude Include="FLIPEngine.h" />
     <ClInclude Include="FLIPGrid.cuh" />
     <ClInclude Include="FLIPGrid.h" />
+    <ClInclude Include="Hash.cuh" />
+    <ClInclude Include="SurfaceTurbulence.cuh" />
+    <ClInclude Include="SurfaceTurbulence.h" />
     <ClInclude Include="VolumeData.cuh" />
+    <ClInclude Include="WeightKernels.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FLIP3D_Cuda.cu" />
     <CudaCompile Include="FLIPGrid.cu" />
+    <CudaCompile Include="Hash.cu" />
+    <CudaCompile Include="SurfaceTurbulence.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{D9F6A165-9601-460E-88F9-A96E798C1F4A}</ProjectGuid>

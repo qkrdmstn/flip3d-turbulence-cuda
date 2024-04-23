@@ -1,12 +1,15 @@
 #include "FLIPEngine.h"
 
+#define RES 32
+
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
 	_dt = dt;
 	_frame = 0u;
 
-	_fluid = new FLIP3D_Cuda(32u);
+	_fluid = new FLIP3D_Cuda(RES);
+	_turbulence = new SurfaceTurbulence(_fluid, RES);
 }
 
 void	FLIPEngine::simulation(void)
@@ -18,9 +21,9 @@ void	FLIPEngine::simulation(void)
 
 	_fluid->SolvePICFLIP();
 
-	_fluid->AdvectParticle_kernel(_dt);
+	//_fluid->AdvectParticle_kernel(_dt);
 
-	_fluid->Correct_kernel(_dt);
+	//_fluid->Correct_kernel(_dt);
 	_fluid->CopyToHost();
 
 	//if (_frame > 500)

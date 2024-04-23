@@ -2,10 +2,13 @@
 #define __SYSTEM_H__
 
 #include "FLIP3D_Cuda.h"
+#include "SurfaceTurbulence.h"
+
 class FLIPEngine
 {
 public:
 	FLIP3D_Cuda* _fluid;
+	SurfaceTurbulence* _turbulence;
 public:
 	AABB			_boundary;
 public:

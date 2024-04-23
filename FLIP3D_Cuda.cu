@@ -1,5 +1,5 @@
 #include "FLIP3D_Cuda.cuh"
-#define VEL 0
+#define VEL 1
 #define PRESS 0
 #define LEVEL 0
 #define DENSITY 0
@@ -40,7 +40,8 @@ void FLIP3D_Cuda::Init(void)
 	CopyToDevice();
 
 	ComputeWallParticleNormal_kernel();
-	//cudaDeviceSynchronize();
+	cudaDeviceSynchronize();
+
 }
 
 void FLIP3D_Cuda::ParticleInit()
@@ -310,13 +311,13 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::SolvePICFLIP()
 {
-	//ResetCell_kernel();
+	ResetCell_kernel();
 
 	TrasnferToGrid_kernel();
 	MarkWater_kernel();
 
-	ComputeGridDensity_kernel();
 	EnforceBoundary_kernel();
+	ComputeGridDensity_kernel();
 	ComputeDivergence_kernel();
 	ComputeLevelSet_kernel();
 	SolvePressureJacobi_kernel();
@@ -354,7 +355,7 @@ void FLIP3D_Cuda::EnforceBoundary_kernel()
 
 void FLIP3D_Cuda::ComputeDivergence_kernel()
 {
-	ComputeDivergence_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(),_gridRes);
+	ComputeDivergence_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
 }
 
 void FLIP3D_Cuda::ComputeLevelSet_kernel()
@@ -420,6 +421,7 @@ void FLIP3D_Cuda::Correct_kernel(REAL dt)
 	Correct_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_CurPos(), d_Vel(), d_Normal(), d_Mass(), d_Type(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, dt, _dens / _gridRes, r1, r2, r3);
 }
+
 void FLIP3D_Cuda::SetHashTable_kernel(void)
 {
 	CalculateHash_kernel();
@@ -504,7 +506,6 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_gridLevelSet.free();
 	d_gridDiv.free();
 	d_gridContent.free();
-
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
@@ -602,14 +603,6 @@ void FLIP3D_Cuda::draw(void)
 		//glVertex3d(position.x, position.y, position.z);
 		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
 		//glEnd();
-
-		//glColor3f(1.0f, 1.0f, 1.0f);
-		//glLineWidth(1.0f);
-		//glBegin(GL_LINES);
-		//float c = 0.2f;
-		//glVertex3d(position.x, position.y, position.z);
-		//glVertex3d(position.x + normal.x * c, position.y + normal.y * c, position.z + normal.z * c);
-		//glEnd();
 	}
 	//printf("cnt: %d\n", cnt);
 
@@ -623,6 +616,15 @@ void FLIP3D_Cuda::draw(void)
 		REAL divergence = h_gridDiv[i];
 		uint content = h_gridContent[i];
 
+		int x = 15; 
+		int y = 2;
+		int z = 15;
+		int idx = x * 32 * 32 + y * 32 + z;
+		//if (i == idx) {
+		//	printf("velocity: %f %f %f\n", velocity.x ,velocity.y, velocity.z);
+		//	printf("div: %f\n", divergence);
+		//	printf("final: %f\n", pressure);
+		//}
 #if VEL
 
 		glColor3f(1.0f, 1.0f, 1.0f);
@@ -636,9 +638,11 @@ void FLIP3D_Cuda::draw(void)
 
 #if PRESS
 		//Visualize Pressure
-		if (pressure == 0 )
+		if (pressure == 0  )
 			continue;
-		REAL3 color = ScalarToColor(pressure * 10);
+
+
+		REAL3 color = ScalarToColor(pressure );
 		glColor3f(color.x, color.y, color.z);
 
 		glPointSize(15.0);
@@ -738,3 +742,4 @@ REAL3 FLIP3D_Cuda::ScalarToColor(double val)
 	REAL3 color = make_REAL3(x, y, z);
 	return color;
 }
+
