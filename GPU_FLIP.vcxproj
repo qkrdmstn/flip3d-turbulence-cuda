@@ -20,6 +20,7 @@
     <ClInclude Include="FLIPEngine.h" />
     <ClInclude Include="FLIPGrid.cuh" />
     <ClInclude Include="FLIPGrid.h" />
+    <ClInclude Include="GPUarray.h" />
     <ClInclude Include="Hash.cuh" />
     <ClInclude Include="SurfaceTurbulence.cuh" />
     <ClInclude Include="SurfaceTurbulence.h" />

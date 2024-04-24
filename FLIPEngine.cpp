@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 32
+#define RES 64
 
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
@@ -21,9 +21,9 @@ void	FLIPEngine::simulation(void)
 
 	_fluid->SolvePICFLIP();
 
-	//_fluid->AdvectParticle_kernel(_dt);
+	_fluid->AdvectParticle_kernel(_dt);
 
-	//_fluid->Correct_kernel(_dt);
+	_fluid->Correct_kernel(_dt);
 	_fluid->CopyToHost();
 
 	//if (_frame > 500)

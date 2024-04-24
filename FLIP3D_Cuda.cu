@@ -1,5 +1,5 @@
 #include "FLIP3D_Cuda.cuh"
-#define VEL 1
+#define VEL 0
 #define PRESS 0
 #define LEVEL 0
 #define DENSITY 0
@@ -25,7 +25,7 @@ void FLIP3D_Cuda::Init(void)
 
 	ParticleInit();
 	_numParticles = h_CurPos.size();
-	cout << _numParticles << endl;
+	printf("Num FLIP particles: %d\n", _numParticles);
 
 	//For grid visualize
 	h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
@@ -41,7 +41,6 @@ void FLIP3D_Cuda::Init(void)
 
 	ComputeWallParticleNormal_kernel();
 	cudaDeviceSynchronize();
-
 }
 
 void FLIP3D_Cuda::ParticleInit()
@@ -95,8 +94,8 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
-	//DamBreakTest();
+	//WaterDropTest();
+	DamBreakTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -175,13 +174,13 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
-	//obj.type = FLUID;
-	//obj.shape = SPHERE;
-	//obj.c.x = 0.5;
-	//obj.c.y = 0.6;
-	//obj.c.z = 0.5;
-	//obj.r = 0.12;
-	//objects.push_back(obj);
+	obj.type = FLUID;
+	obj.shape = SPHERE;
+	obj.c.x = 0.5;
+	obj.c.y = 0.6;
+	obj.c.z = 0.5;
+	obj.r = 0.12;
+	objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::DamBreakTest()
@@ -366,7 +365,7 @@ void FLIP3D_Cuda::ComputeLevelSet_kernel()
 void FLIP3D_Cuda::ComputeGridDensity_kernel()
 {
 	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes);
+		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes);
 }
 
 void FLIP3D_Cuda::SolvePressureJacobi_kernel()
@@ -375,6 +374,7 @@ void FLIP3D_Cuda::SolvePressureJacobi_kernel()
 	{
 		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
 			(_grid->d_Volumes, _gridRes);
+		cudaDeviceSynchronize();
 	}
 }
 
@@ -589,8 +589,8 @@ void FLIP3D_Cuda::draw(void)
 		//glColor3f(1.0, 1.0, 1.0);
 		cnt++;
 		//////////cout << h_Dens[i] << endl;
-		//REAL3 color = ScalarToColor(density);
-		//glColor3f(color.x, color.y, color.z);
+		REAL3 color = ScalarToColor(density);
+		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
@@ -641,6 +641,8 @@ void FLIP3D_Cuda::draw(void)
 		if (pressure == 0  )
 			continue;
 
+		//if (content == CONTENT_WALL)
+		//	printf("%f\n", pressure);
 
 		REAL3 color = ScalarToColor(pressure );
 		glColor3f(color.x, color.y, color.z);
