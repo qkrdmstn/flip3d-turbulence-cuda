@@ -11,12 +11,16 @@
 using namespace std;
 
 #define SURFACE_DENSITY 20.0
-#define PER_PARTICLE 10
+#define PER_PARTICLE 140
 
 class SurfaceTurbulence
 {
 public: //Device
 	//Particle
+	//Initialize
+	Dvector<uint> d_ParticleGridIndex;
+	Dvector<uint> d_StateData;
+
 	//Surface Maintenance
 	Dvector<REAL3> d_Pos;
 	Dvector<REAL3> d_Vel;
@@ -26,15 +30,15 @@ public: //Device
 	Dvector<REAL3> d_Tangent;
 	Dvector<REAL> d_KernelDens;
 	
-	//Wave Simulation
-	Dvector<REAL> d_Curvature;
-	Dvector<REAL> d_TempCurvature;
-	Dvector<REAL> d_WaveH;
-	Dvector<REAL> d_WaveDtH;
-	Dvector<REAL> d_Seed;
-	Dvector<REAL> d_WaveSeedAmp;
-	Dvector<REAL> d_Laplacian;
-	Dvector<REAL3> d_WaveNormal;
+	////Wave Simulation
+	//Dvector<REAL> d_Curvature;
+	//Dvector<REAL> d_TempCurvature;
+	//Dvector<REAL> d_WaveH;
+	//Dvector<REAL> d_WaveDtH;
+	//Dvector<REAL> d_Seed;
+	//Dvector<REAL> d_WaveSeedAmp;
+	//Dvector<REAL> d_Laplacian;
+	//Dvector<REAL3> d_WaveNormal;
 
 public: //Host
 	//Particle
@@ -63,63 +67,50 @@ public: //Hash
 	Dvector<uint> d_CellStart;
 	Dvector<uint> d_CellEnd;
 
+	uint _hashGridRes;
 
 public: // Surface Maintenance Coefficient
 	REAL _coarseScaleLen;
 	REAL _fineScaleLen;
-	REAL outerRadius;
-	REAL innerRadius;
+	REAL _outerRadius;
+	REAL _innerRadius;
 
 public:
 	//Wave Simulation Coefficient
-	REAL dt = 0.00125;
-	REAL waveSpeed = 8.0;
-	REAL waveSeedFreq = 2.0;
-	REAL waveMaxAmplitude = 0.025;
-	REAL waveMaxFreq = 400.0;
-	REAL waveMaxSeedingAmplitude = 0.05;
-	REAL waveSeedingCurvatureThresholdMinimum;
-	REAL waveSeedingCurvatureThresholdMaximum;
+	REAL _dt = 0.00125;
+	REAL _waveSpeed = 8.0;
+	REAL _waveSeedFreq = 2.0;
+	REAL _waveMaxAmplitude = 0.025;
+	REAL _waveMaxFreq = 400.0;
+	REAL _waveMaxSeedingAmplitude = 0.05;
+	REAL _waveSeedingCurvatureThresholdMinimum;
+	REAL _waveSeedingCurvatureThresholdMaximum;
 	REAL waveSeedStepSizeRatioOfMax = 0.025;
 
 public:
-	Dvector<uint> d_NumFineParticles;
-	vector<uint> h_NumFineParticles;
+	uint _numFineParticles;
 
 public:
 	FLIP3D_Cuda* _fluid;
 	uint _baseRes;
-
+	
 public:
 	SurfaceTurbulence();
-	SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
-		_fluid = fluid;
-
-		_baseRes = gridRes;
-		_coarseScaleLen = 1.0 / gridRes;
-		_fineScaleLen = PI * (_coarseScaleLen + (_coarseScaleLen / 2.0)) / SURFACE_DENSITY;
-		outerRadius = _coarseScaleLen;
-		innerRadius = outerRadius / 2.0;
-
-		waveSeedingCurvatureThresholdMinimum = _coarseScaleLen * 0.005; //°î·ü ÀÓ°è°ª (Á¶Á¤ ÇÊ¿ä)
-		waveSeedingCurvatureThresholdMaximum = _coarseScaleLen * 0.077;
-
-		InitHostMem();
-		InitDeviceMem();
-		CopyToDevice();
-
-		Initialize_kernel();
-		printf("Coarse Scale Length: %f\n", _coarseScaleLen);
-		printf("Fine Scale Length: %f\n", _fineScaleLen);
-
-		CopyToHost();
-		printf("Initialize coarse-particles number is %d\n", _fluid->_numParticles);
-		printf("Initialize fine-particles number is %d\n", h_NumFineParticles[0]);
-	}
+	SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes);
 	~SurfaceTurbulence();
 
-public:
+public: //Initialize
 	void Initialize_kernel(void);
+	void ThrustScanWrapper_kernel(uint* output, uint*input, uint numElements);
+
+public: //Surface Maintenance
+	void Advection_kernel(void);
+
+public:	//Hash
+	void SetHashTable_kernel(void);
+	void CalculateHash_kernel(void);
+	void SortParticle_kernel(void);
+	void FindCellStart_kernel(void);
 
 public:		//Cuda
 	void InitHostMem(void);
@@ -133,5 +124,8 @@ public:		//Cuda
 		numBlocks = divup(n, numThreads);
 	}
 
+public:
+	void draw(void);
+	REAL3 ScalarToColor(double val);
 };
 #endif

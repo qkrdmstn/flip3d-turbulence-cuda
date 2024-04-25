@@ -106,7 +106,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 0.0;			obj.p[1].x = _wallThick; //Box min, max °ª
 	obj.p[0].y = 0.0;			obj.p[1].y = 1.0;
 	obj.p[0].z = 0.0;			obj.p[1].z = 1.0;
@@ -116,7 +115,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 1.0 - _wallThick;	obj.p[1].x = 1.0;
 	obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
 	obj.p[0].z = 0.0;				obj.p[1].z = 1.0;
@@ -126,7 +124,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 0.0;	obj.p[1].x = 1.0;
 	obj.p[0].y = 0.0;	obj.p[1].y = _wallThick;
 	obj.p[0].z = 0.0;	obj.p[1].z = 1.0;
@@ -136,7 +133,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 0.0;				obj.p[1].x = 1.0;
 	obj.p[0].y = 1.0 - _wallThick;	obj.p[1].y = 1.0;
 	obj.p[0].z = 0.0;				obj.p[1].z = 1.0;
@@ -146,7 +142,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 0.0;	obj.p[1].x = 1.0;
 	obj.p[0].y = 0.0;	obj.p[1].y = 1.0;
 	obj.p[0].z = 0.0;	obj.p[1].z = _wallThick;
@@ -156,7 +151,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.type = WALL;
 	obj.shape = BOX;
 	obj.material = GLASS;
-	obj.visible = 0;
 	obj.p[0].x = 0.0;				obj.p[1].x = 1.0;
 	obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
 	obj.p[0].z = 1.0 - _wallThick;	obj.p[1].z = 1.0;
@@ -189,7 +183,6 @@ void FLIP3D_Cuda::DamBreakTest()
 
 	obj.type = FLUID;
 	obj.shape = BOX;
-	obj.visible = true;
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
 	obj.p[0].z = 0.2;	obj.p[1].z = 0.8;
@@ -198,7 +191,6 @@ void FLIP3D_Cuda::DamBreakTest()
 
 	obj.type = FLUID;
 	obj.shape = BOX;
-	obj.visible = true;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
@@ -271,8 +263,8 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 		REAL3 normal = make_REAL3(0.0, 0.0, 0.0);
 		REAL dens = 10.0;
 		uint type = inside_obj->type;
-		uint visible = inside_obj->visible;
 		REAL mass = 1.0;
+		REAL kernelDens = 0.0;
 		BOOL flag = false;
 
 		h_BeforePos.push_back(beforePos);
@@ -281,8 +273,8 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 		h_Normal.push_back(normal);
 		h_Dens.push_back(dens);
 		h_Type.push_back(type);
-		h_Visible.push_back(visible);
 		h_Mass.push_back(mass);
+		h_KernelDens.push_back(kernelDens);
 		h_Flag.push_back(false);
 	}
 }
@@ -316,10 +308,7 @@ void FLIP3D_Cuda::SolvePICFLIP()
 	MarkWater_kernel();
 
 	EnforceBoundary_kernel();
-	ComputeGridDensity_kernel();
-	ComputeDivergence_kernel();
-	ComputeLevelSet_kernel();
-	SolvePressureJacobi_kernel();
+	SolvePressure();
 	ComputeVelocityWithPress_kernel();
 	EnforceBoundary_kernel();
 	ExtrapolateVelocity_kernel();
@@ -362,21 +351,336 @@ void FLIP3D_Cuda::ComputeLevelSet_kernel()
 	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
 }
 
-void FLIP3D_Cuda::ComputeGridDensity_kernel()
+
+void FLIP3D_Cuda::SolvePressure() 
 {
-	ComputeGridDensity_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
-		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _maxDens, _gridRes);
+	ComputeDivergence_kernel();
+	ComputeLevelSet_kernel();
+
+	// step 1: compute # of threads per block
+	uint _threads = 16 * 16;
+	// step 2: compute # of blocks needed
+	uint _blocks = (_gridRes * _gridRes * _gridRes + _threads - 1) / _threads;
+	// step 3: find grid's configuration	
+	REAL _doubleThreads = (REAL)_blocks;
+	uint _k0 = (uint)floor(sqrt(_doubleThreads));
+	uint _k1 = (uint)ceil(_doubleThreads / ((REAL)_k0));
+	dim3 _numThreads;
+	_numThreads.x = 16;
+	_numThreads.y = 16;
+	_numThreads.z = 1;
+	dim3 _numGrid;
+	_numGrid.x = _k1;
+	_numGrid.y = _k0;
+	_numGrid.z = 1;
+	uint _size = _gridRes * _gridRes * _gridRes;
+	REAL _eps = 1.E-12;
+	REAL _oneOverRes2 = (1.0 + _eps) / ((REAL)_gridRes);
+	REAL _oneOverRes3 = (1.0 + _eps) / ((REAL)_gridRes);
+
+	//Copy To Solver
+	uint* _airD;
+	REAL* _levelsetD;
+	REAL* _pressureD;
+	REAL* _divergenceD;
+	cudaMalloc((void**)&_airD, sizeof(uint) * _size);
+	cudaMalloc((void**)&_levelsetD, sizeof(REAL) * _size);
+	cudaMalloc((void**)&_pressureD, sizeof(REAL) * _size);
+	cudaMalloc((void**)&_divergenceD, sizeof(REAL) * _size);
+
+	cudaMemset(_airD, 0, sizeof(uint) * _size);
+	cudaMemset(_levelsetD, 0, sizeof(REAL) * _size);
+	cudaMemset(_pressureD, 0, sizeof(REAL) * _size);
+	cudaMemset(_divergenceD, 0, sizeof(REAL) * _size);
+
+	//////Grid -> Solver Copy
+	CopyToSolver_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+		(_grid->d_Volumes, _airD, _levelsetD, _pressureD, _divergenceD, _gridRes);
+
+	REAL* _preconditionerD;
+	cudaMalloc((void**)&_preconditionerD, sizeof(REAL) * _size);
+	cudaMemset(_preconditionerD, 0, sizeof(REAL) * _size);
+
+	BuildPreconditioner_kernel(_preconditionerD, _levelsetD, _airD, _gridRes, _oneOverRes2, _oneOverRes3, _size, _numGrid, _numThreads);
+
+	REAL* _raid1;
+	REAL* _raid2;
+	REAL* _raid3;
+	cudaMalloc((void**)&_raid1, sizeof(REAL) * _size);
+	cudaMalloc((void**)&_raid2, sizeof(REAL) * _size);
+	cudaMalloc((void**)&_raid3, sizeof(REAL) * _size);
+
+	Solver_kernel(_airD,
+		_preconditionerD,
+		_levelsetD,
+		_pressureD,
+		_divergenceD,
+		_raid1,
+		_raid2,
+		_raid3,
+		_gridRes,
+		_oneOverRes2,
+		_oneOverRes3,
+		_size,
+		_numGrid,
+		_numThreads);
+
+	//Solver -> Grid Copy
+	CopyToGrid_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+		(_grid->d_Volumes, _airD, _levelsetD, _pressureD, _divergenceD, _gridRes);
+
+
+	//Free
+	cudaFree(_airD);
+	cudaFree(_levelsetD);
+	cudaFree(_pressureD);
+	cudaFree(_divergenceD);
+	cudaFree(_preconditionerD);
+	cudaFree(_raid1);
+	cudaFree(_raid2);
+	cudaFree(_raid3);
 }
 
-void FLIP3D_Cuda::SolvePressureJacobi_kernel()
+void FLIP3D_Cuda::BuildPreconditioner_kernel(REAL* P, REAL* L, uint* A, uint gridSize, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads)
 {
-	for (int i = 0; i < _iterations; i++)
-	{
-		SolvePressureJacobi_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > 
-			(_grid->d_Volumes, _gridRes);
-		cudaDeviceSynchronize();
-	}
+	BuildPreconditioner_D << < grid, threads >> > (P, L, A, gridSize, one_over_n2, one_over_n3, sizeOfData, dim3(16, 16, 16));
 }
+
+void FLIP3D_Cuda::Solver_kernel(uint* A, REAL* P, REAL* L, REAL* x, REAL* b, REAL* r, REAL* z, REAL* s, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads)
+{
+	// host variables
+	REAL a_host = 0.0f;
+	REAL a2_host = 0.0f;
+	REAL tmp1_host = 0.0f;
+	REAL error2_0_host = 0.0f;
+	REAL error2_host = 0.0f;
+
+	// device variables
+	REAL* a_device = NULL;
+	REAL* a2_device = NULL;
+	REAL* tmp1_device = NULL;
+	REAL* error2_device = NULL;
+	REAL* error2_0_device = NULL;
+
+	// init buffers
+	cudaMalloc(&a_device, sizeof(REAL));
+	cudaMalloc(&a2_device, sizeof(REAL));
+	cudaMalloc(&tmp1_device, sizeof(REAL));
+	cudaMalloc(&error2_device, sizeof(REAL));
+	cudaMalloc(&error2_0_device, sizeof(REAL));
+
+	// z=applyA(x)
+	Compute_Ax_D << < grid, threads >> > (A, L, x, z, size, one_over_n2, one_over_n3, sizeOfData, grid, threads, dim3(16, 16, 16));
+
+	// r=b-Ax
+	Op_Kernel(A, b, z, r, -1.0, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+	error2_0_host = 0.0f;
+	cudaMemcpy(error2_0_device, &error2_0_host, sizeof(REAL), cudaMemcpyHostToDevice);
+
+	// error2_0 = r.r
+	//   DotKernel<<< grid, threads >>>(A, r, r, size, error2_0_device, one_over_n2, one_over_n3, sizeOfData, grid, threads); 
+	DotHost(A, r, r, size, error2_0_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+	cudaMemcpy(&error2_0_host, error2_0_device, sizeof(float), cudaMemcpyDeviceToHost);
+
+	// Apply conditioner z = f(r)
+	Apply_Preconditioner(z, r, P, L, A, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+	cudaMemcpy(a_device, &a_host, sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(error2_device, &error2_host, sizeof(float), cudaMemcpyHostToDevice);
+
+	// a = z . r
+	//   DotKernel<<< grid, threads >>>(A, z, r, size, a_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+	DotHost(A, z, r, size, a_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+	cudaMemcpy(&a_host, a_device, sizeof(float), cudaMemcpyDeviceToHost);
+
+	// s = z
+	cudaMemcpy(s, z, sizeof(float) * sizeOfData, cudaMemcpyDeviceToDevice);
+	cudaMemcpy(a2_device, &a2_host, sizeof(float), cudaMemcpyHostToDevice);
+
+	// tolerance setting
+	double eps = 1.0e-2 * (sizeOfData);
+	cudaMemcpy(tmp1_device, &tmp1_host, sizeof(float), cudaMemcpyHostToDevice);
+
+	for (int k = 0; k < (int)sizeOfData; k++) {
+		// z = applyA(s)
+		Compute_Ax_D << < grid, threads >> > (A, L, s, z, size, one_over_n2, one_over_n3, sizeOfData, grid, threads, dim3(16, 16, 16));
+
+		// alpha = a/(z . s)
+		//      cudaMemset(tmp1_device, 0, sizeof(float));
+		//      DotKernel<<< grid, threads >>>(A, z, s, size, tmp1_device, one_over_n2, one_over_n3, sizeOfData, grid, threads); 
+		DotHost(A, z, s, size, tmp1_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+		cudaMemcpy(&tmp1_host, tmp1_device, sizeof(float), cudaMemcpyDeviceToHost);
+		float alpha = a_host / tmp1_host;
+
+		// x = x + alpha*s
+		Op_Kernel(A, x, s, x, (float)alpha, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+
+		// r = r - alpha*z;
+		Op_Kernel(A, r, z, r, (float)-alpha, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+
+		// error2 = r.r
+		//      cudaMemset(error2_device, 0, sizeof(float));
+		//      DotKernel<<< grid, threads >>>(A, r, r, size, error2_device, one_over_n2, one_over_n3, sizeOfData, grid, threads); 
+		DotHost(A, r, r, size, error2_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+		cudaMemcpy(&error2_host, error2_device, sizeof(float), cudaMemcpyDeviceToHost);
+		error2_0_host = max(error2_0_host, error2_host);
+
+		if (error2_host <= eps) {
+			break;
+		}
+
+		// Apply Conditioner z = f(r)
+		Apply_Preconditioner(z, r, P, L, A, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+
+		// a2 = z . r
+		//      cudaMemset(a2_device, 0, sizeof(float));
+		//      DotKernel<<< grid, threads >>>(A, z, r, size, a2_device, one_over_n2, one_over_n3, sizeOfData, grid, threads); 
+		DotHost(A, z, r, size, a2_device, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+		cudaMemcpy(&a2_host, a2_device, sizeof(float), cudaMemcpyDeviceToHost);
+
+		// beta = a2 / a   
+		float beta = a2_host / a_host;
+
+		// s = z + beta*s
+		Op_Kernel(A, z, s, s, (float)beta, size, one_over_n2, one_over_n3, sizeOfData, grid, threads);
+		a_host = a2_host;
+	}
+
+	// Free
+	cudaFree(a_device);
+	cudaFree(a2_device);
+	cudaFree(tmp1_device);
+	cudaFree(error2_device);
+	cudaFree(error2_0_device);
+
+	a_device = NULL;
+	a2_device = NULL;
+	tmp1_device = NULL;
+	error2_device = NULL;
+	error2_0_device = NULL;
+}
+
+void FLIP3D_Cuda::Op_Kernel(uint* A,
+	REAL* x,
+	REAL* y,
+	REAL* ans,   // copy
+	REAL      a,
+	uint         size,
+	REAL      one_over_n2,
+	REAL      one_over_n3,
+	uint   sizeOfData,
+	dim3         grid,
+	dim3         threads)
+{
+	REAL* tmp;
+	cudaMalloc(&tmp, sizeof(REAL) * sizeOfData);
+	// operation
+	Operator_Kernel << < grid, threads >> > (A,
+		x,
+		y,
+		tmp,
+		a,
+		size,
+		one_over_n2,
+		one_over_n3,
+		sizeOfData,
+		grid,
+		threads,
+		dim3(16, 16, 16));
+	// copy
+	Copy_Kernel << < grid, threads >> > (ans,
+		tmp,
+		size,
+		one_over_n2,
+		one_over_n3,
+		sizeOfData,
+		grid,
+		threads,
+		dim3(16, 16, 16));
+	cudaFree(tmp);
+}
+
+void FLIP3D_Cuda::DotHost(uint* A, REAL* x, REAL* y, uint size, REAL* result, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads)
+{
+	uint* A_host = new uint[sizeOfData];
+	REAL* x_host = new REAL[sizeOfData];
+	REAL* y_host = new REAL[sizeOfData];
+	REAL   result_host = 0.0;
+	cudaMemcpy(A_host, A, sizeof(uint) * sizeOfData, cudaMemcpyDeviceToHost);
+	cudaMemcpy(x_host, x, sizeof(REAL) * sizeOfData, cudaMemcpyDeviceToHost);
+	cudaMemcpy(y_host, y, sizeof(REAL) * sizeOfData, cudaMemcpyDeviceToHost);
+
+#pragma omp for reduction(+:result_host)
+	for (int i = 0; i < (int)sizeOfData; i++) {
+		if (A_host[i] == FLUID)   result_host += x_host[i] * y_host[i];
+	}
+
+	cudaMemcpy(result, &result_host, sizeof(REAL), cudaMemcpyHostToDevice);
+	delete[] A_host;
+	delete[] x_host;
+	delete[] y_host;
+}
+
+void FLIP3D_Cuda::Apply_Preconditioner(REAL* z,
+	REAL* r,
+	REAL* P,
+	REAL* L,
+	uint* A,
+	uint         size,
+	REAL      one_over_n2,
+	REAL      one_over_n3,
+	uint   sizeOfData,
+	dim3         grid,
+	dim3         threads)
+{
+	REAL* q;
+	cudaMalloc((void**)&q, sizeof(REAL) * sizeOfData);
+	cudaMemset(q, 0, sizeof(REAL) * sizeOfData);
+
+	// Lq = r
+	Apply_Preconditioner_Kernel << < grid, threads >> > (z,
+		r,
+		P,
+		L,
+		A,
+		q,
+		size,
+		one_over_n2,
+		one_over_n3,
+		sizeOfData,
+		grid,
+		threads,
+		dim3(16, 16, 16));
+	// L^T z = q
+	Apply_Trans_Preconditioner_Kernel << < grid, threads >> > (z,
+		r,
+		P,
+		L,
+		A,
+		q,
+		size,
+		one_over_n2,
+		one_over_n3,
+		sizeOfData,
+		grid,
+		threads,
+		dim3(16, 16, 16));
+	cudaFree(q);
+
+	/*
+	Non_Preconditioner(z,
+	r,
+	P,
+	L,
+	A,
+	size,
+	one_over_n2,
+	one_over_n3,
+	sizeOfData,
+	grid,
+	threads);
+	*/
+}
+
 
 void FLIP3D_Cuda::ComputeVelocityWithPress_kernel()
 {
@@ -454,23 +758,24 @@ void FLIP3D_Cuda::FindCellStart_kernel(void)
 
 void FLIP3D_Cuda::InitDeviceMem(void)
 {
-	d_GridHash.resize(_numParticles);			d_GridHash.memset(0);
-	d_GridIdx.resize(_numParticles);			d_GridIdx.memset(0);
+	//Particles
+	d_BeforePos.resize(_numParticles);							d_BeforePos.memset(0);
+	d_CurPos.resize(_numParticles);								d_CurPos.memset(0);
+	d_Vel.resize(_numParticles);								d_Vel.memset(0);
+	d_Normal.resize(_numParticles);								d_Normal.memset(0);
+	d_Type.resize(_numParticles);								d_Type.memset(0);
+	d_Mass.resize(_numParticles);								d_Mass.memset(0);
+	d_Dens.resize(_numParticles);								d_Dens.memset(0);
+	d_KernelDens.resize(_numParticles);							d_KernelDens.memset(0);
+	d_Flag.resize(_numParticles);								d_Flag.memset(0);
+
+	//Hash
+	d_GridHash.resize(_numParticles);							d_GridHash.memset(0);
+	d_GridIdx.resize(_numParticles);							d_GridIdx.memset(0);
 	d_CellStart.resize(_gridRes * _gridRes * _gridRes);			d_CellStart.memset(0);
 	d_CellEnd.resize(_gridRes * _gridRes * _gridRes);			d_CellEnd.memset(0);
 
-	d_BeforePos.resize(_numParticles);			d_BeforePos.memset(0);
-	d_CurPos.resize(_numParticles);			d_CurPos.memset(0);
-	d_Vel.resize(_numParticles);			d_Vel.memset(0);
-	d_Normal.resize(_numParticles);			d_Normal.memset(0);
-	d_Type.resize(_numParticles);			d_Type.memset(0);
-	d_Visible.resize(_numParticles);		d_Visible.memset(0);
-	d_Remove.resize(_numParticles);			d_Remove.memset(0);
-	d_Mass.resize(_numParticles);			d_Mass.memset(0);
-	d_Dens.resize(_numParticles);			d_Dens.memset(0);
-
-	d_Flag.resize(_numParticles);			d_Flag.memset(0);
-
+	//Visualize
 	d_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPos.memset(0);
 	d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
 	d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
@@ -479,26 +784,32 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDiv.memset(0);
 	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
 	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+
+	cudaMalloc((void**)&_raid1, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
+	cudaMalloc((void**)&_raid2, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
+	cudaMalloc((void**)&_raid3, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
 }
 
 void FLIP3D_Cuda::FreeDeviceMem(void)
 {
-	d_GridHash.free();
-	d_GridIdx.free();
-	d_CellStart.free();
-	d_CellEnd.free();
-
+	//Particles
 	d_BeforePos.free();
 	d_CurPos.free();
 	d_Vel.free();
 	d_Normal.free();
 	d_Type.free();
-	d_Visible.free();
-	d_Remove.free();
 	d_Mass.free();
 	d_Dens.free();
-
+	d_KernelDens.free();
 	d_Flag.free();
+
+	//Hash
+	d_GridHash.free();
+	d_GridIdx.free();
+	d_CellStart.free();
+	d_CellEnd.free();
+
+	//Visualize
 	d_gridPos.free();
 	d_gridVel.free();
 	d_gridPress.free();
@@ -506,21 +817,26 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_gridLevelSet.free();
 	d_gridDiv.free();
 	d_gridContent.free();
+
+	_raid1 = NULL;
+	_raid2 = NULL;
+	_raid3 = NULL;
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
 {
+	//Particles
 	d_BeforePos.copyFromHost(h_BeforePos);
 	d_CurPos.copyFromHost(h_CurPos);
 	d_Vel.copyFromHost(h_Vel);
 	d_Normal.copyFromHost(h_Normal);
 	d_Type.copyFromHost(h_Type);
-	d_Visible.copyFromDevice(h_Visible);
-	d_Remove.copyFromHost(h_Remove);
 	d_Mass.copyFromHost(h_Mass);
 	d_Dens.copyFromHost(h_Dens);
-
+	d_KernelDens.copyFromHost(h_KernelDens);
 	d_Flag.copyFromHost(h_Flag);
+
+	//Visualize
 	d_gridPos.copyFromHost(h_gridPos);
 	d_gridVel.copyFromHost(h_gridVel);
 	d_gridPress.copyFromHost(h_gridPress);
@@ -532,17 +848,18 @@ void FLIP3D_Cuda::CopyToDevice(void)
 
 void FLIP3D_Cuda::CopyToHost(void)
 {
+	//Particles
 	d_BeforePos.copyToHost(h_BeforePos);
 	d_CurPos.copyToHost(h_CurPos);
 	d_Vel.copyToHost(h_Vel);
 	d_Normal.copyToHost(h_Normal);
 	d_Type.copyToHost(h_Type);
-	d_Visible.copyToHost(h_Visible);
-	d_Remove.copyToHost(h_Remove);
 	d_Mass.copyToHost(h_Mass);
 	d_Dens.copyToHost(h_Dens);
-
+	d_KernelDens.copyToHost(h_KernelDens);
 	d_Flag.copyToHost(h_Flag);
+
+	//Visualize
 	d_gridPos.copyToHost(h_gridPos);
 	d_gridVel.copyToHost(h_gridVel);
 	d_gridPress.copyToHost(h_gridPress);
@@ -559,7 +876,6 @@ void FLIP3D_Cuda::GridValueVisualize(void)
 
 void FLIP3D_Cuda::draw(void)
 {
-	int cnt = 0;
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
 	glPointSize(1.0);
@@ -572,10 +888,13 @@ void FLIP3D_Cuda::draw(void)
 		uint type = h_Type[i];
 		BOOL flag = h_Flag[i];
 
-		//if (h_Flag[i])
+		//if (h_Flag[i]) {
+		//	glPointSize(3.0);
 		//	glColor3f(1.0f, 0.0f, 0.0f);
+		//}
 		//else
 		//{
+		//	glPointSize(1.0);
 		//	//continue;
 		//	glColor3f(0.0f, 0.0f, 1.0f);
 		//}
@@ -584,10 +903,10 @@ void FLIP3D_Cuda::draw(void)
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		else
-			glColor3f(0.0f, 1.0f, 1.0f);
-		//glColor3f(1.0, 1.0, 1.0);
-		cnt++;
+		//else
+		//	glColor3f(0.0f, 1.0f, 1.0f);
+		////glColor3f(1.0, 1.0, 1.0);
+		
 		//////////cout << h_Dens[i] << endl;
 		REAL3 color = ScalarToColor(density);
 		glColor3f(color.x, color.y, color.z);

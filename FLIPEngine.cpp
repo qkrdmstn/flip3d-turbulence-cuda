@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 32
 
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
@@ -9,12 +9,13 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_frame = 0u;
 
 	_fluid = new FLIP3D_Cuda(RES);
-	_turbulence = new SurfaceTurbulence(_fluid, RES);
+	//_turbulence = new SurfaceTurbulence(_fluid, RES);
+	_fluid->CopyToHost();
 }
 
 void	FLIPEngine::simulation(void)
 {
-	printf("-------------- Step %d --------------\n", _frame);
+	//printf("-------------- Step %d --------------\n", _frame);
 	_fluid->SetHashTable_kernel();
 	_fluid->ComputeParticleDensity_kernel();
 	_fluid->ComputeExternalForce_kernel(_gravity, _dt);
@@ -24,7 +25,11 @@ void	FLIPEngine::simulation(void)
 	_fluid->AdvectParticle_kernel(_dt);
 
 	_fluid->Correct_kernel(_dt);
+
+	//_turbulence->Advection_kernel();
+
 	_fluid->CopyToHost();
+	//turbulence->CopyToHost();
 
 	//if (_frame > 500)
 	//	exit(0);
@@ -39,4 +44,5 @@ void	FLIPEngine::reset(void)
 void FLIPEngine::draw(void)
 {
 	_fluid->draw();
+	//_turbulence->draw();
 }

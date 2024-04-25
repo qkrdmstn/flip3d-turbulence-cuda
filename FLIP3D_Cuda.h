@@ -7,6 +7,7 @@
 #include "thrust/sort.h"
 #include <GL/freeglut.h>
 #include "FLIPGrid.h"
+#include<stdio.h>
 
 #define BLOCK_SIZE 1024
 
@@ -21,7 +22,7 @@
 #define GRAY	2
 #define RED		3
 
-#define PI          3.14159265
+#define PI          3.141592
 
 using namespace std;
 
@@ -29,7 +30,6 @@ struct Object {
 	uint type;
 	uint shape;
 	uint material;
-	BOOL visible;
 	REAL r; //Sphere's radius (SPHEREÀÏ °æ¿ì)
 	REAL3 c; //Sphere's  center
 	REAL3 p[2]; //Box's min, max position
@@ -44,10 +44,9 @@ public:		//Device
 	Dvector<REAL3> d_Vel;
 	Dvector<REAL3> d_Normal;
 	Dvector<uint> d_Type;
-	Dvector<uint> d_Visible;
-	Dvector<uint> d_Remove;
 	Dvector<REAL> d_Mass;
 	Dvector<REAL> d_Dens;
+	Dvector<REAL> d_KernelDens;
 
 	Dvector<BOOL> d_Flag;
 
@@ -60,12 +59,6 @@ public:		//Device
 	Dvector<REAL> d_gridDiv;
 	Dvector<uint> d_gridContent;
 
-public:		//Hash
-	Dvector<uint> d_GridHash;
-	Dvector<uint> d_GridIdx;
-	Dvector<uint> d_CellStart;
-	Dvector<uint> d_CellEnd;
-
 public:		//Host
 	//Particle
 	vector<REAL3> h_BeforePos;
@@ -73,11 +66,10 @@ public:		//Host
 	vector<REAL3> h_Vel;
 	vector<REAL3> h_Normal;
 	vector<uint> h_Type;
-	vector<uint> h_Visible;
-	vector<uint> h_Remove;
 	vector<REAL> h_Mass;
 	vector<REAL> h_Dens;
-	
+	vector<REAL> h_KernelDens;
+
 	vector<BOOL> h_Flag;
 
 	//grid visualize
@@ -88,6 +80,18 @@ public:		//Host
 	vector<REAL> h_gridLevelSet;
 	vector<REAL> h_gridDiv;
 	vector<uint> h_gridContent;
+
+public: //Solver
+	REAL* _raid1;
+	REAL* _raid2;
+	REAL* _raid3;
+
+public:		//Hash
+	Dvector<uint> d_GridHash;
+	Dvector<uint> d_GridIdx;
+	Dvector<uint> d_CellStart;
+	Dvector<uint> d_CellEnd;
+
 public:
 	FLIPGRID* _grid;
 
@@ -134,16 +138,24 @@ public:		//Simulation
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);
 	void EnforceBoundary_kernel(void);
+
+	//Solver
+	void SolvePressure(void);
 	void ComputeDivergence_kernel(void);
 	void ComputeLevelSet_kernel(void);
 	void ComputeGridDensity_kernel(void);
-	void SolvePressureJacobi_kernel(void);
+	void BuildPreconditioner_kernel(REAL* P, REAL* L, uint* A, uint gridSize, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
+	void Solver_kernel(uint* A, REAL* P, REAL* L, REAL* x, REAL* b, REAL* r, REAL* z, REAL* s, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
+	void Op_Kernel(uint* A, REAL* x, REAL* y, REAL* ans, REAL a, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
+	void DotHost(uint* A, REAL* x, REAL* y, uint size, REAL* result, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
+	void Apply_Preconditioner(REAL* z, REAL* r, REAL* P, REAL* L, uint* A, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
 	void ComputeVelocityWithPress_kernel(void);
+
 	void ExtrapolateVelocity_kernel(void);
 	void SubtarctGrid_kernel(void);
 	void TrasnferToParticle_kernel(void);
-
 	void AdvectParticle_kernel(REAL dt);
+
 	void Correct_kernel(REAL dt);
 
 public:	//Hash

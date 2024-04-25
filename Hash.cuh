@@ -34,7 +34,7 @@ __device__ static uint calcGridHash(int3 pos, uint gridRes)
 	return __umul24(__umul24(pos.z, gridRes), gridRes) + __umul24(pos.y, gridRes) + pos.x;
 }
 
-__device__ static  uint GetNumFluidParticleAt(uint i, uint j, uint k, REAL3* pos, uint* type, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
+__device__ static  uint GetNumFluidParticleAt(uint i, uint j, uint k, REAL3* pos, uint* type, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
 {
 	REAL cellSize = 1.0 / gridRes;
 	REAL3 centerPos = make_REAL3(i + 0.5, j + 0.5, k + 0.5) * cellSize;

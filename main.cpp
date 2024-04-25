@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 
 float _zoom = 1.959998f; // 화면 확대,축소
 float _rot_x = 14.2f; // x축 회전
@@ -20,6 +20,7 @@ bool _simulation = false;
 
 int _frame = 0;
 int _drawOption = 1;
+int frame = 0, curTime, timebase = 0;
 
 FLIPEngine* _engine;
 
@@ -71,6 +72,17 @@ void Update(void)
 			Capture(strPath, 800, 800);
 		}
 #endif
+		frame++;
+		curTime = glutGet(GLUT_ELAPSED_TIME);
+
+		if (curTime - timebase > 1000)
+		{
+			double fps = frame * 1000.0 / (curTime - timebase);
+			timebase = curTime;
+			frame = 0;
+
+			printf("FPS : %f\n", fps);
+		}
 
 		_engine->simulation();
 		//if (_frame == 280) {
