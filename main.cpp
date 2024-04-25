@@ -74,7 +74,6 @@ void Update(void)
 #endif
 		frame++;
 		curTime = glutGet(GLUT_ELAPSED_TIME);
-
 		if (curTime - timebase > 1000)
 		{
 			double fps = frame * 1000.0 / (curTime - timebase);

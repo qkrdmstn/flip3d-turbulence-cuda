@@ -143,7 +143,6 @@ public:		//Simulation
 	void SolvePressure(void);
 	void ComputeDivergence_kernel(void);
 	void ComputeLevelSet_kernel(void);
-	void ComputeGridDensity_kernel(void);
 	void BuildPreconditioner_kernel(REAL* P, REAL* L, uint* A, uint gridSize, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
 	void Solver_kernel(uint* A, REAL* P, REAL* L, REAL* x, REAL* b, REAL* r, REAL* z, REAL* s, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);
 	void Op_Kernel(uint* A, REAL* x, REAL* y, REAL* ans, REAL a, uint size, REAL one_over_n2, REAL one_over_n3, uint sizeOfData, dim3 grid, dim3 threads);

@@ -175,6 +175,7 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.c.z = 0.5;
 	obj.r = 0.12;
 	objects.push_back(obj);
+
 }
 
 void FLIP3D_Cuda::DamBreakTest()
@@ -184,7 +185,7 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.9;
 	obj.p[0].z = 0.2;	obj.p[1].z = 0.8;
 
 	objects.push_back(obj);
