@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <string>
+#include <time.h>
 #include <Windows.h> // exit error
 #include "GL\glut.h"
 #include "FLIPEngine.h"
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 
 float _zoom = 1.959998f; // 화면 확대,축소
 float _rot_x = 14.2f; // x축 회전
@@ -84,6 +85,7 @@ void Update(void)
 		}
 
 		_engine->simulation();
+
 		//if (_frame == 280) {
 		//	exit(0);
 		//}
@@ -98,7 +100,7 @@ void Draw(void)
 	glEnable(GL_LIGHTING); // 조명 활성화
 	glEnable(GL_LIGHT0); // 첫번째 조명
 
-	_engine->draw();
+	_engine->draw(_drawOption);
 	glDisable(GL_LIGHTING);
 }
 

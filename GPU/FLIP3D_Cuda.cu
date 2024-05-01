@@ -1,6 +1,6 @@
 #include "FLIP3D_Cuda.cuh"
-#define VEL 1
-#define PRESS 1
+#define VEL 0
+#define PRESS 0
 #define LEVEL 0
 #define DENSITY 0
 #define DIV 0
@@ -185,7 +185,7 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.9;
 	obj.p[0].z = 0.2;	obj.p[1].z = 0.8;
 
 	objects.push_back(obj);
@@ -890,12 +890,12 @@ void FLIP3D_Cuda::draw(void)
 		BOOL flag = h_Flag[i];
 
 		//if (h_Flag[i]) {
-		//	//glPointSize(3.0);
+		//	glPointSize(3.0);
 		//	glColor3f(1.0f, 0.0f, 0.0f);
 		//}
 		//else
 		//{
-		//	//glPointSize(1.0);
+		//	glPointSize(1.0);
 		//	//continue;
 		//	glColor3f(0.0f, 0.0f, 1.0f);
 		//}
@@ -904,13 +904,13 @@ void FLIP3D_Cuda::draw(void)
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		else
-			glColor3f(0.0f, 1.0f, 1.0f);
+		//else
+		//	glColor3f(0.0f, 1.0f, 1.0f);
 		////glColor3f(1.0, 1.0, 1.0);
 		
-		////////////cout << h_Dens[i] << endl;
-		//REAL3 color = ScalarToColor(density);
-		//glColor3f(color.x, color.y, color.z);
+		//////////cout << h_Dens[i] << endl;
+		REAL3 color = ScalarToColor(density);
+		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
@@ -936,10 +936,10 @@ void FLIP3D_Cuda::draw(void)
 		REAL divergence = h_gridDiv[i];
 		uint content = h_gridContent[i];
 
-		//int x = 15; 
-		//int y = 2;
-		//int z = 15;
-		//int idx = x * _gridRes * _gridRes + y * _gridRes + z;
+		int x = 15; 
+		int y = 2;
+		int z = 15;
+		int idx = x * 32 * 32 + y * 32 + z;
 		//if (i == idx) {
 		//	printf("velocity: %f %f %f\n", velocity.x ,velocity.y, velocity.z);
 		//	printf("div: %f\n", divergence);
@@ -950,7 +950,7 @@ void FLIP3D_Cuda::draw(void)
 		glColor3f(1.0f, 1.0f, 1.0f);
 		glLineWidth(1.0f);
 		glBegin(GL_LINES);
-		float c = 0.02f;
+		float c = 0.2f;
 		glVertex3d(position.x, position.y, position.z);
 		glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
 		glEnd();

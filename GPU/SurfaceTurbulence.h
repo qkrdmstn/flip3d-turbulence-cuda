@@ -29,7 +29,6 @@ public: //Device
 	Dvector<REAL3> d_TempPos;
 	Dvector<REAL3> d_Tangent;
 	Dvector<REAL> d_KernelDens;
-	Dvector<BOOL> d_Flag;
 	
 	////Wave Simulation
 	//Dvector<REAL> d_Curvature;
@@ -51,7 +50,6 @@ public: //Host
 	vector<REAL3> h_TempPos;
 	vector<REAL3> h_Tangent;
 	vector<REAL> h_KernelDens;
-	vector<BOOL> h_Flag;
 
 	//Wave Simulation
 	vector<REAL> h_Curvature;
@@ -107,12 +105,6 @@ public: //Initialize
 
 public: //Surface Maintenance
 	void Advection_kernel(void);
-	void SurfaceConstraint_kernel(void);
-	void Regularization_kernel(void);
-	void SurfaceMaintenance(void);
-
-public:
-
 
 public:	//Hash
 	void SetHashTable_kernel(void);

@@ -3,6 +3,7 @@
 __global__ void CalculateHash_D(uint* gridHash, uint* gridIdx, REAL3* pos, uint gridRes, uint numParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+
 	if (idx >= numParticles)
 		return;
 

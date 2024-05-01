@@ -28,7 +28,7 @@ public:
 	void	simulation(void);
 	void	reset(void);
 public:
-	void	draw(int option);
+	void	draw(void);
 };
 
 #endif
