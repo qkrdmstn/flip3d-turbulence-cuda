@@ -85,32 +85,135 @@ void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 	
 }
 
-void SurfaceTurbulence::Regularization_kernel(void)
+void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
 {
-	SetHashTable_kernel();
 	REAL r = _coarseScaleLen;
-
 	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
 			_baseRes, _fluid->_numParticles);
 
 	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, d_Flag());
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
 
 	ComputeSurfaceNormal_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(_fluid->d_CurPos(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _baseRes,
-			d_Pos(), d_KernelDens(), d_TempNormal(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles,
+			d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_TempNormal(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles,
 			_outerRadius, _innerRadius);
 
 	SmoothNormal_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Pos(), d_KernelDens(), d_TempNormal(), d_SurfaceNormal(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
+		(d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_TempNormal(), d_SurfaceNormal(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
+}
+
+void SurfaceTurbulence::NormalRegularization_kernel(void)
+{
+	REAL r = _coarseScaleLen;
+
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	NormalRegularization_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempPos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
+}
+
+void SurfaceTurbulence::TangentRegularization_kernel(void)
+{
+	REAL r = 3.0 * _fineScaleLen;
+
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	TangentRegularization_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempPos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+}
+
+void SurfaceTurbulence::Regularization_kernel(void)
+{
+
+	ComputeSurfaceNormal_kernel();
+
+	CopyToTempPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempPos(), _numFineParticles);
+
+	NormalRegularization_kernel();
+	TangentRegularization_kernel();
+
+	CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempPos(), _numFineParticles);
+}
+
+void SurfaceTurbulence::InsertFineParticles(void)
+{
+	REAL tangentRadius = 3.0 * _fineScaleLen;
+
+	//Normal 계산
+	ComputeSurfaceNormal_kernel();
+
+	//Tangent Regularization을 위한 가중치 밀도 설정
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(tangentRadius, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(tangentRadius, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _fluid->_numParticles);
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<REAL3>(d_Pos()));
+
+	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_ParticleGridIndex(), d_StateData(), _fluid->_numParticles);
+
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
+
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (_fluid->_numParticles * PER_PARTICLE) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+
+}
+
+void SurfaceTurbulence::DeleteFineParticles(void)
+{
+	DeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _fluid->_numParticles);
+
+	AdvectionDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles, _baseRes);
+
+	ConstraintDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles, _baseRes, _outerRadius, _innerRadius);
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<REAL3>(d_Pos()));
+
+	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_ParticleGridIndex(), d_StateData(), _fluid->_numParticles);
+
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
+
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (_fluid->_numParticles * PER_PARTICLE) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
 }
 
 void SurfaceTurbulence::SurfaceMaintenance(void)
 {
 	SurfaceConstraint_kernel();
-	//Regularization_kernel();
 
+	SetHashTable_kernel();
+	Regularization_kernel();
+
+	SetHashTable_kernel();
+	InsertFineParticles();
+	DeleteFineParticles();
 }
 
 void SurfaceTurbulence::SetHashTable_kernel(void)
@@ -153,6 +256,7 @@ void SurfaceTurbulence::InitHostMem(void)
 	h_TempPos.resize(_fluid->_numParticles * PER_PARTICLE);
 	h_Tangent.resize(_fluid->_numParticles * PER_PARTICLE);
 	h_KernelDens.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_NeighborWeightSum.resize(_fluid->_numParticles * PER_PARTICLE);
 	h_Flag.resize(_fluid->_numParticles * PER_PARTICLE);
 
 	////Wave Simulation
@@ -181,6 +285,7 @@ void SurfaceTurbulence::InitDeviceMem()
 	d_TempPos.resize(_fluid->_numParticles * PER_PARTICLE);				d_TempPos.memset(0);
 	d_Tangent.resize(_fluid->_numParticles * PER_PARTICLE);				d_Tangent.memset(0);
 	d_KernelDens.resize(_fluid->_numParticles * PER_PARTICLE);			d_KernelDens.memset(0);
+	d_NeighborWeightSum.resize(_fluid->_numParticles * PER_PARTICLE);	d_NeighborWeightSum.memset(0);
 	d_Flag.resize(_fluid->_numParticles * PER_PARTICLE);				d_Flag.memset(0);
 
 	////Wave Simulation
@@ -214,6 +319,7 @@ void SurfaceTurbulence::FreeDeviceMem()
 	d_TempPos.free();
 	d_Tangent.free();
 	d_KernelDens.free();
+	d_NeighborWeightSum.free();
 	d_Flag.free();
 
 	////Wave Simulation
@@ -243,6 +349,7 @@ void SurfaceTurbulence::CopyToDevice()
 	d_TempPos.copyFromHost(h_TempPos);
 	d_Tangent.copyFromHost(h_Tangent);
 	d_KernelDens.copyFromHost(h_KernelDens);
+	d_NeighborWeightSum.copyFromHost(h_NeighborWeightSum);
 	d_Flag.copyFromHost(h_Flag);
 
 	////Wave Simulation
@@ -267,6 +374,7 @@ void SurfaceTurbulence::CopyToHost()
 	d_TempPos.copyToHost(h_TempPos);
 	d_Tangent.copyToHost(h_Tangent);
 	d_KernelDens.copyToHost(h_KernelDens);
+	d_NeighborWeightSum.copyToHost(h_NeighborWeightSum);
 	d_Flag.copyToHost(h_Flag);
 	////Wave Simulation
 	//d_Curvature.copyToHost(h_Curvature);
@@ -289,10 +397,11 @@ void SurfaceTurbulence::draw(void)
 	for (uint i = 0u; i < _numFineParticles; i++)
 	{
 		REAL3 position = h_Pos[i];
-		REAL3 surfaceNormal = h_SurfaceNormal[i];
+		//REAL3 surfaceNormal = h_SurfaceNormal[i];
+		REAL3 surfaceNormal = h_TempNormal[i];
 		BOOL flag = h_Flag[i];
 
-		////Draw normal
+		//////Draw normal
 		//glColor3f(1.0f, 1.0f, 1.0f);
 		//double scale = 0.03;
 		//glBegin(GL_LINES);

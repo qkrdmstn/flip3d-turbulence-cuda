@@ -1,7 +1,7 @@
 #include "FLIPEngine.h"
 
 #define RES 32
-#define TURBULENCE 0
+#define TURBULENCE 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
@@ -32,16 +32,19 @@ void	FLIPEngine::simulation(void)
 	if (_frame == 0) {
 		for (int i = 0; i < 24; i++) {
 			_turbulence->SurfaceMaintenance();
-
+			//if (i % 6 == 0)
+			//	printf("%.4f%\n", (float)(i + 1) / 24.0);
 		}
 
 	}
 	else {
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 1; i++) {
 			_turbulence->SurfaceMaintenance();
-
+			//if (i % 2 == 0)
+			//	printf("%.4f%\n", (float)(i + 1) / 4);
 		}
 	}
+	printf("-------------- fineParticles %d --------------\n", _turbulence->_numFineParticles);
 #endif
 
 	_fluid->CopyToHost();

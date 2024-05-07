@@ -8,7 +8,8 @@
 using namespace std;
 
 #define SCREEN_CAPTURE 1
-
+int _width = 800;
+int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
 float _rot_x = 14.2f; // x축 회전
 float _rot_y = -24.00f; // y축 회전
@@ -19,9 +20,10 @@ int _last_y = 0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
-int _frame = 0;
 int _drawOption = 1;
 int frame = 0, curTime, timebase = 0;
+int _frame = 0;
+double fps = 0;
 
 FLIPEngine* _engine;
 
@@ -30,7 +32,7 @@ void Init(void)
 	// 깊이값 사용 여부
 	glEnable(GL_DEPTH_TEST);
 	// 0.6e-2
-	_engine = new FLIPEngine(make_REAL3(0.0, -9.81, 0.0), 0.6e-2);
+	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.6e-2);
 }
 
 void Capture(char* filename, int width, int height)
@@ -70,18 +72,16 @@ void Update(void)
 		if (_frame <= 600) {
 			string path = "image\\gridvisualize\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
-			Capture(strPath, 800, 800);
+			Capture(strPath, _width, _height);
 		}
 #endif
 		frame++;
 		curTime = glutGet(GLUT_ELAPSED_TIME);
 		if (curTime - timebase > 1000)
 		{
-			double fps = frame * 1000.0 / (curTime - timebase);
+			fps = frame * 1000.0 / (curTime - timebase);
 			timebase = curTime;
 			frame = 0;
-
-			printf("FPS : %f\n", fps);
 		}
 
 		_engine->simulation();
@@ -94,6 +94,41 @@ void Update(void)
 	glutPostRedisplay();
 }
 
+void DrawText(float x, float y, const char* text, void* font = NULL)
+{
+	glColor3f(1, 1, 1);
+	glDisable(GL_DEPTH_TEST);
+
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0.0, (double)_width, 0.0, (double)_height, -1.0, 1.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	if (font == NULL) {
+		font = GLUT_BITMAP_9_BY_15;
+	}
+
+	size_t len = strlen(text);
+
+	glRasterPos2f(x, y);
+	for (const char* letter = text; letter < text + len; letter++) {
+		if (*letter == '\n') {
+			y -= 12.0f;
+			glRasterPos2f(x, y);
+		}
+		glutBitmapCharacter(font, *letter);
+	}
+
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glEnable(GL_DEPTH_TEST);
+}
 
 void Draw(void)
 {
@@ -102,6 +137,13 @@ void Draw(void)
 
 	_engine->draw(_drawOption);
 	glDisable(GL_LIGHTING);
+
+	//char text[100];
+	//sprintf(text, "Frame: %d", _frame);
+	//DrawText(10.0f, 760.0f, text);
+
+	//sprintf(text, "FPS: %f", fps);
+	//DrawText(10.0f, 780.0f, text);
 }
 
 void Display(void)
@@ -219,7 +261,7 @@ void main(int argc, char** argv)
 	glutInit(&argc, argv);
 	Init();
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-	glutInitWindowSize(800, 800);
+	glutInitWindowSize(_width, _height);
 	glutInitWindowPosition(100, 100);
 	glutCreateWindow("FLIP on GPU");
 	glutDisplayFunc(Display);

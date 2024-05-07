@@ -29,6 +29,7 @@ public: //Device
 	Dvector<REAL3> d_TempPos;
 	Dvector<REAL3> d_Tangent;
 	Dvector<REAL> d_KernelDens;
+	Dvector<REAL> d_NeighborWeightSum;
 	Dvector<BOOL> d_Flag;
 	
 	////Wave Simulation
@@ -51,6 +52,7 @@ public: //Host
 	vector<REAL3> h_TempPos;
 	vector<REAL3> h_Tangent;
 	vector<REAL> h_KernelDens;
+	vector<REAL> h_NeighborWeightSum;
 	vector<BOOL> h_Flag;
 
 	//Wave Simulation
@@ -109,10 +111,14 @@ public: //Surface Maintenance
 	void Advection_kernel(void);
 	void SurfaceConstraint_kernel(void);
 	void Regularization_kernel(void);
+	void InsertFineParticles(void);
+	void DeleteFineParticles(void);
 	void SurfaceMaintenance(void);
 
-public:
-
+public: //Regularization func
+	void ComputeSurfaceNormal_kernel(void);
+	void NormalRegularization_kernel(void);
+	void TangentRegularization_kernel(void);
 
 public:	//Hash
 	void SetHashTable_kernel(void);

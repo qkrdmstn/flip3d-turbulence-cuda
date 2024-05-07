@@ -21,8 +21,8 @@ __global__ void FindCellStart_D(uint* gridHash, uint* cellStart, uint* cellEnd, 
 	extern __shared__ uint sharedHash[];  // blockSize + 1 elements
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	//if (idx >= numParticles)
-	//	return;
+	if (idx >= numParticles)
+		return;
 
 	uint hash;
 	// handle case when no. of particles not multiple of block size

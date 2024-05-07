@@ -1,6 +1,6 @@
 #include "FLIP3D_Cuda.cuh"
-#define VEL 1
-#define PRESS 1
+#define VEL 0
+#define PRESS 0
 #define LEVEL 0
 #define DENSITY 0
 #define DIV 0
@@ -197,6 +197,57 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 
 	objects.push_back(obj);
+
+	////////Z  //이방향 nan 에러
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
+	//obj.p[0].z = _wallThick;	obj.p[1].z = 0.06;
+
+	//objects.push_back(obj);
+	//
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
+	//obj.p[0].z = 1.0 - 0.06;	obj.p[1].z = 1.0 - _wallThick;
+
+	//objects.push_back(obj);
+	
+	////X
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = _wallThick;	obj.p[1].x = 0.06;
+	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
+	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = 1.0 - 0.06;	obj.p[1].x = 1.0 - _wallThick;
+	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
+	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+
+	//objects.push_back(obj);
+
+	////Y
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	//obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
+	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	//obj.p[0].y = 1.0 - 0.06;	obj.p[1].y = 1.0 - _wallThick;
+	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+
+	//objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
@@ -337,7 +388,7 @@ void FLIP3D_Cuda::MarkWater_kernel()
 		(_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
 }
 
-void FLIP3D_Cuda::EnforceBoundary_kernel()
+void FLIP3D_Cuda::EnforceBoundary_kernel() 
 {
 	EnforceBoundary_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes);
 }
@@ -1029,13 +1080,13 @@ void FLIP3D_Cuda::draw(void)
 
 		}
 		else if (content == CONTENT_AIR) {
-			//continue;
+			continue;
 			glColor3f(0, 1, 0);
 			glPointSize(2.0);
 
 		}
 		else if (content == CONTENT_WALL) {
-			//continue;
+			continue;
 			glColor3f(1, 1, 1);
 			glPointSize(1.0);
 		}

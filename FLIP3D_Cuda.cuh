@@ -325,9 +325,9 @@ __global__ void MarkWater_D(VolumeCollection volumes, REAL3* pos, uint* type, RE
 		{
 			uint sortedIdx = gridIdx[i];
 			
-			REAL3 dist = pos[sortedIdx] - centerPos;
+			REAL3 dist = pos[sortedIdx] - centerPos; //정확히 그 칸에 있는 애만 집어야 함 옆 cell의 벽 파티클까지 해서 그런듯
 			REAL d2 = LengthSquared(dist);
-			if (d2 > cellSize * cellSize)
+			if (d2 > cellSize * cellSize * 0.25)
 				continue;
 			if (type[sortedIdx] == WALL) {
 				volumes.content.writeSurface<uint>(CONTENT_WALL, gridPos.x, gridPos.y, gridPos.z);
@@ -371,7 +371,7 @@ __global__ void EnforceBoundary_D(VolumeCollection volumes, uint gridRes)
 
 	if (y == 0 || y == gridRes)
 		velocity.y = 0.0;
-	if (y < gridRes && y>0 && WallCheck(volumes.content.readSurface<uint>(x, y, z)) * WallCheck(volumes.content.readSurface<uint>(x, y - 1, z)) < 0)
+	if (y < gridRes && y>0 && WallCheck(volumes.content.readSurface<uint>(x, y, z)) * WallCheck(volumes.content.readSurface<uint>(x, y - 1, z)) < 0) //여기가 문제
 	{
 		velocity.y = 0.0;
 	}
