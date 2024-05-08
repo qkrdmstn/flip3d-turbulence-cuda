@@ -10,6 +10,21 @@
 
 using namespace std;
 
+__host__ __device__
+struct WaveParam
+{
+	//Wave Simulation Coefficient
+	REAL _dt = 0.001;
+	REAL _waveSpeed = 4.0;
+	REAL _waveSeedFreq = 2.0;
+	REAL _waveMaxAmplitude = 0.025;
+	REAL _waveMaxFreq = 400.0;
+	REAL _waveMaxSeedingAmplitude = 0.05;
+	REAL _waveSeedingCurvatureThresholdMinimum;
+	REAL _waveSeedingCurvatureThresholdMaximum;
+	REAL _waveSeedStepSizeRatioOfMax = 0.025;
+};
+
 #define SURFACE_DENSITY 20.0
 #define PER_PARTICLE 140
 
@@ -42,6 +57,9 @@ public: //Device
 	Dvector<REAL> d_Laplacian;
 	Dvector<REAL3> d_WaveNormal;
 
+	//Display Particle
+	Dvector<REAL3> d_DisplayPos;
+
 public: //Host
 	//Particle
 	//Surface Maintenance
@@ -65,6 +83,9 @@ public: //Host
 	vector<REAL> h_Laplacian;
 	vector<REAL3> h_WaveNormal;
 
+	//Display Particle
+	vector<REAL3> h_DisplayPos;
+
 public: //Hash
 	Dvector<uint> d_GridHash;
 	Dvector<uint> d_GridIdx;
@@ -80,16 +101,8 @@ public: // Surface Maintenance Coefficient
 	REAL _innerRadius;
 
 public:
-	//Wave Simulation Coefficient
-	REAL _dt = 0.00125;
-	REAL _waveSpeed = 8.0;
-	REAL _waveSeedFreq = 2.0;
-	REAL _waveMaxAmplitude = 0.025;
-	REAL _waveMaxFreq = 400.0;
-	REAL _waveMaxSeedingAmplitude = 0.05;
-	REAL _waveSeedingCurvatureThresholdMinimum;
-	REAL _waveSeedingCurvatureThresholdMaximum;
-	REAL waveSeedStepSizeRatioOfMax = 0.025;
+	WaveParam waveParam;
+
 
 public:
 	uint _numFineParticles;
@@ -104,6 +117,7 @@ public:
 	~SurfaceTurbulence();
 
 public: //Initialize
+	void InitWaveParam(void);
 	void Initialize_kernel(void);
 	void ThrustScanWrapper_kernel(uint* output, uint*input, uint numElements);
 
@@ -117,8 +131,9 @@ public: //Surface Maintenance
 
 public: //Wave Simulation func
 	void ComputeCurvature_kernel(void);
-	void SmoothCurvature_kernel(void);
 	void SeedWave_kernel(int step);
+	void ComputeWaveNormal_kernel(void);
+	void ComputeLaplacian_kernel(void);
 	void EvolveWave_kernel(void);
 	void WaveSimulation_kernel(int step);
 
@@ -146,7 +161,8 @@ public:		//Cuda
 	}
 
 public:
-	void draw(void);
+	void drawFineParticles(void);
+	void drawDisplayParticles(void);
 	REAL3 ScalarToColor(double val);
 };
 #endif

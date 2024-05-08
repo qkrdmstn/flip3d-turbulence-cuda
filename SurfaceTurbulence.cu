@@ -16,13 +16,14 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	_outerRadius = _coarseScaleLen;
 	_innerRadius = _outerRadius / 2.0;
 
-	_waveSeedingCurvatureThresholdMinimum = _coarseScaleLen * 0.005; //°î·ü ÀÓ°è°ª (Á¶Á¤ ÇÊ¿ä)
-	_waveSeedingCurvatureThresholdMaximum = _coarseScaleLen * 0.077;
+	waveParam._waveSeedingCurvatureThresholdMinimum = _coarseScaleLen * 0.077; //°î·ü ÀÓ°è°ª (Á¶Á¤ ÇÊ¿ä)
+	waveParam._waveSeedingCurvatureThresholdMaximum = _coarseScaleLen * 0.15;
 
 	InitHostMem();
 	InitDeviceMem();
 	CopyToDevice();
 
+	//InitWaveParam();
 	Initialize_kernel();
 	printf("Coarse Scale Length: %f\n", _coarseScaleLen);
 	printf("Fine Scale Length: %f\n", _fineScaleLen);
@@ -35,6 +36,11 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 SurfaceTurbulence:: ~SurfaceTurbulence()
 {
 	FreeDeviceMem();
+}
+
+void SurfaceTurbulence::InitWaveParam(void)
+{
+
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -227,26 +233,64 @@ void  SurfaceTurbulence::ComputeCurvature_kernel(void)
 		(d_Pos(), d_TempCurvature(), d_Curvature(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
 }
 
-void SurfaceTurbulence::SmoothCurvature_kernel(void)
-{
-
-}
-
 void SurfaceTurbulence::SeedWave_kernel(int step)
 {
+	SetHashTable_kernel();
 
+	REAL r = 3.0 * _fineScaleLen;
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	SeedWave_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Curvature(), d_WaveSeedAmp(), d_Seed(), d_WaveH(), _numFineParticles, step, waveParam);
+}
+
+void SurfaceTurbulence::ComputeWaveNormal_kernel(void)
+{
+	REAL r = 3.0 * _fineScaleLen;
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeWaveNormal_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_WaveNormal(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _fluid->_numParticles);
+}
+
+void SurfaceTurbulence::ComputeLaplacian_kernel(void)
+{
+	REAL r = 3.0 * _fineScaleLen;
+	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
+
+	ComputeLaplacian_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_Laplacian(), d_WaveNormal(), d_WaveH(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles);
 }
 
 void SurfaceTurbulence::EvolveWave_kernel(void)
 {
-
+	EvolveWave_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_WaveDtH(), d_WaveH(), d_Laplacian(), d_Seed(), _numFineParticles, waveParam);
 }
 
 void SurfaceTurbulence::WaveSimulation_kernel(int step)
 {
 	ComputeCurvature_kernel();
 	SeedWave_kernel(step);
+	ComputeWaveNormal_kernel();
+	ComputeLaplacian_kernel();
+
 	EvolveWave_kernel();
+
+	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
 }
 
 void SurfaceTurbulence::SetHashTable_kernel(void)
@@ -302,6 +346,8 @@ void SurfaceTurbulence::InitHostMem(void)
 	h_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);
 	h_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);
 
+	//Display Particle
+	h_DisplayPos.resize(_fluid->_numParticles * PER_PARTICLE);
 }
 
 void SurfaceTurbulence::InitDeviceMem()
@@ -330,6 +376,9 @@ void SurfaceTurbulence::InitDeviceMem()
 	d_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);		d_WaveSeedAmp.memset(0);
 	d_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);			d_Laplacian.memset(0);
 	d_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveNormal.memset(0);
+
+	//Display Particle
+	d_DisplayPos.resize(_fluid->_numParticles * PER_PARTICLE);			d_DisplayPos.memset(0);
 
 	//Hash
 	d_GridHash.resize(_fluid->_numParticles * PER_PARTICLE);			d_GridHash.memset(0);
@@ -365,6 +414,9 @@ void SurfaceTurbulence::FreeDeviceMem()
 	d_Laplacian.free();
 	d_WaveNormal.free();
 
+	//Display Particle
+	d_DisplayPos.free();
+
 	//Hash
 	d_GridHash.free();
 	d_GridIdx.free();
@@ -395,6 +447,8 @@ void SurfaceTurbulence::CopyToDevice()
 	d_Laplacian.copyFromHost(h_Laplacian);
 	d_WaveNormal.copyFromHost(h_WaveNormal);
 
+	//Display Particle
+	d_DisplayPos.copyFromHost(h_DisplayPos);
 }
 
 void SurfaceTurbulence::CopyToHost()
@@ -419,20 +473,25 @@ void SurfaceTurbulence::CopyToHost()
 	d_WaveSeedAmp.copyToHost(h_WaveSeedAmp);
 	d_Laplacian.copyToHost(h_Laplacian);
 	d_WaveNormal.copyToHost(h_WaveNormal);
+
+	//Display Particle
+	d_DisplayPos.copyToHost(h_DisplayPos);
 }
 
-void SurfaceTurbulence::draw(void)
+void SurfaceTurbulence::drawFineParticles(void)
 {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
-	glPointSize(2.0);
+	glPointSize(1.0);
 	glLineWidth(1.0);
 	for (uint i = 0u; i < _numFineParticles; i++)
 	{
 		REAL3 position = h_Pos[i];
 		REAL3 surfaceNormal = h_SurfaceNormal[i];
+		REAL3 waveNormal = h_WaveNormal[i];
 		//REAL3 surfaceNormal = h_TempNormal[i];
 		REAL curvatrue = h_Curvature[i];
+		REAL laplacian = h_Laplacian[i];
 		BOOL flag = h_Flag[i];
 
 		//////Draw normal
@@ -443,18 +502,53 @@ void SurfaceTurbulence::draw(void)
 		//glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
 		//glEnd();
 
-		////Curvature
-		REAL3 color = ScalarToColor(curvatrue * 1000);
-		glColor3f(color.x, color.y, color.z);
+		//////Draw waveNormal
+		//glColor3f(1.0f, 1.0f, 1.0f);
+		//double scale = 0.03;
+		//glBegin(GL_LINES);
+		//glVertex3d(position.x, position.y, position.z);
+		//glVertex3d(position.x + waveNormal.x * scale, position.y + waveNormal.y * scale, position.z + waveNormal.z * scale);
+		//glEnd();
+
+		////Curvature visualize
+		//REAL3 color = ScalarToColor(curvatrue * 10);
+		//glColor3f(color.x, color.y, color.z);
 		
-		////general visualize
-		//glColor3f(1.0f, 0.0f, 0.0f);
+		////Laplacian visualize
+		//REAL3 color = ScalarToColor(laplacian * 0.05);
+		//glColor3f(color.x, color.y, color.z);
+
+		//////general visualize
+		glColor3f(1.0f, 0.0f, 0.0f);
 
 		//if (flag) {
 		//	glColor3f(1.0f, 0.0f, 0.0f);
 		//}
 		//else
 		//	glColor3f(1.0f, 1.0f, 1.0f);
+		glBegin(GL_POINTS);
+		glVertex3d(position.x, position.y, position.z);
+		glEnd();
+	}
+	//printf("NUM:::: %d\n", cnt);
+	glPointSize(1.0);
+	glEnable(GL_LIGHTING);
+	glPopMatrix();
+}
+
+void SurfaceTurbulence::drawDisplayParticles(void)
+{
+	glPushMatrix();
+	glDisable(GL_LIGHTING);
+	glPointSize(2.0);
+	glLineWidth(1.0);
+	for (uint i = 0u; i < _numFineParticles; i++)
+	{
+		REAL3 position = h_DisplayPos[i];
+
+		////general visualize
+		glColor3f(1.0f, 0.0f, 0.0f);
+
 		glBegin(GL_POINTS);
 		glVertex3d(position.x, position.y, position.z);
 		glEnd();

@@ -107,7 +107,6 @@ public:
 
 	REAL _cellPhysicalSize; //hash table
 
-
 public:
 	vector<Object> objects;
 

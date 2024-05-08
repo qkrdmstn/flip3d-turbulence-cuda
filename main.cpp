@@ -20,7 +20,7 @@ int _last_y = 0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
-int _drawOption = 1;
+int _drawOption = 4;
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
@@ -69,7 +69,7 @@ void Update(void)
 {
 	if (_simulation) {
 #if SCREEN_CAPTURE
-		if (_frame <= 600) {
+		if (_frame <= 1000) {
 			string path = "image\\gridvisualize\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
@@ -138,12 +138,12 @@ void Draw(void)
 	_engine->draw(_drawOption);
 	glDisable(GL_LIGHTING);
 
-	//char text[100];
-	//sprintf(text, "Frame: %d", _frame);
-	//DrawText(10.0f, 760.0f, text);
+	char text[100];
+	sprintf(text, "Frame: %d", _frame);
+	DrawText(10.0f, 760.0f, text);
 
-	//sprintf(text, "FPS: %f", fps);
-	//DrawText(10.0f, 780.0f, text);
+	sprintf(text, "FPS: %f", fps);
+	DrawText(10.0f, 780.0f, text);
 }
 
 void Display(void)

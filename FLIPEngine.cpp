@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 32
 #define TURBULENCE 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
@@ -68,24 +68,22 @@ void FLIPEngine::draw(int option)
 	if (option == 1) {
 		_fluid->draw();
 #if TURBULENCE
-		_turbulence->draw();
+		_turbulence->drawDisplayParticles();
 #endif
 	}
 	else if (option == 2) {
 		_fluid->draw();
 #if TURBULENCE
-		_turbulence->draw();
+		_turbulence->drawFineParticles();
 #endif
 	}
 	else if (option == 3)
 		_fluid->draw();
-	else if (option == 4) {
-		//turbulence->drawDisplayParticles();
-
-	}
+	else if (option == 4) 
+		_turbulence->drawDisplayParticles();
 	else if (option == 5) {
 #if TURBULENCE
-		_turbulence->draw();
+		_turbulence->drawFineParticles();
 #endif
 	}
 
