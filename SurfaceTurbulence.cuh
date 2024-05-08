@@ -318,6 +318,8 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx,
 	if (f > 1.0f) f = 1.0f;
 
 	f = (sqrt(-log(f) / a) - r) / (R - r);
+	if (f > 4.0)
+		f = 4.0f;
 	return f;
 }
 
@@ -498,7 +500,7 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, u
 	//{
 	//	printf("%f %f %f %f %f %f %f %f %f\n", sw, swx, swy, swxy, swx2, swy2, swxz, swyz, swz);
 	//}
-	if ((det <= DBL_EPSILON && det >= -DBL_EPSILON) || isnan(det)) {
+	if ((det <= DBL_EPSILON && det >= -DBL_EPSILON)) {
 		surfaceNormal[idx] = make_REAL3(0, 0, 0);
 	}
 	else {
@@ -863,5 +865,72 @@ __global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REA
 		secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
 		finePos[idx] = make_REAL3(-1, -1, -1);
 	}
+}
+
+
+//Compute Curvature
+__global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, REAL coarseRes)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numFineParticles)
+		return;
+
+	REAL r = (1.0 / coarseRes);
+
+	REAL3 pos = finePos[idx];
+	REAL3 normal = surfaceNormal[idx];
+	REAL curvature = 0.0f;
+
+	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
+	int width = (r * fineRes) + 1;
+	FOR_NEIGHBOR(width) {
+		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
+		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint startIdx = fineCellStart[neighHash];
+
+		if (startIdx != 0xffffffff)
+		{
+			uint endIdx = fineCellEnd[neighHash];
+			for (uint i = startIdx; i < endIdx; i++)
+			{
+				uint sortedIdx = fineGridIdx[i];
+				REAL3 pos2 = finePos[sortedIdx];
+				curvature += Dot(normal, (pos - pos2)) * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+			}
+		}
+	}END_FOR;
+
+	tempCurvature[idx] = fabs(curvature);
+}
+
+__global__ void SmoothCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL* curvature, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, REAL coarseRes)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numFineParticles)
+		return;
+
+	REAL r = (1.0 / coarseRes);
+
+	REAL3 pos = finePos[idx];
+	REAL newCurvature = 0.0f;
+
+	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
+	int width = (r * fineRes) + 1;
+	FOR_NEIGHBOR(width) {
+		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
+		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint startIdx = fineCellStart[neighHash];
+
+		if (startIdx != 0xffffffff)
+		{
+			uint endIdx = fineCellEnd[neighHash];
+			for (uint i = startIdx; i < endIdx; i++)
+			{
+				uint sortedIdx = fineGridIdx[i];
+				newCurvature += tempCurvature[sortedIdx] * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+			}
+		}
+	}END_FOR;
+	curvature[idx] = newCurvature;
 }
 #endif

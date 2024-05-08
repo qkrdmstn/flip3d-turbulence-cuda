@@ -33,14 +33,14 @@ public: //Device
 	Dvector<BOOL> d_Flag;
 	
 	////Wave Simulation
-	//Dvector<REAL> d_Curvature;
-	//Dvector<REAL> d_TempCurvature;
-	//Dvector<REAL> d_WaveH;
-	//Dvector<REAL> d_WaveDtH;
-	//Dvector<REAL> d_Seed;
-	//Dvector<REAL> d_WaveSeedAmp;
-	//Dvector<REAL> d_Laplacian;
-	//Dvector<REAL3> d_WaveNormal;
+	Dvector<REAL> d_Curvature;
+	Dvector<REAL> d_TempCurvature;
+	Dvector<REAL> d_WaveH;
+	Dvector<REAL> d_WaveDtH;
+	Dvector<REAL> d_Seed;
+	Dvector<REAL> d_WaveSeedAmp;
+	Dvector<REAL> d_Laplacian;
+	Dvector<REAL3> d_WaveNormal;
 
 public: //Host
 	//Particle
@@ -114,6 +114,13 @@ public: //Surface Maintenance
 	void InsertFineParticles(void);
 	void DeleteFineParticles(void);
 	void SurfaceMaintenance(void);
+
+public: //Wave Simulation func
+	void ComputeCurvature_kernel(void);
+	void SmoothCurvature_kernel(void);
+	void SeedWave_kernel(int step);
+	void EvolveWave_kernel(void);
+	void WaveSimulation_kernel(int step);
 
 public: //Regularization func
 	void ComputeSurfaceNormal_kernel(void);

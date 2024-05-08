@@ -138,7 +138,6 @@ void SurfaceTurbulence::TangentRegularization_kernel(void)
 
 void SurfaceTurbulence::Regularization_kernel(void)
 {
-
 	ComputeSurfaceNormal_kernel();
 
 	CopyToTempPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
@@ -216,6 +215,40 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 	DeleteFineParticles();
 }
 
+void  SurfaceTurbulence::ComputeCurvature_kernel(void)
+{
+	SetHashTable_kernel();
+	ComputeSurfaceNormal_kernel();
+
+	ComputeCurvature_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempCurvature(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
+
+	SmoothCurvature_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempCurvature(), d_Curvature(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _hashGridRes, _numFineParticles, _baseRes);
+}
+
+void SurfaceTurbulence::SmoothCurvature_kernel(void)
+{
+
+}
+
+void SurfaceTurbulence::SeedWave_kernel(int step)
+{
+
+}
+
+void SurfaceTurbulence::EvolveWave_kernel(void)
+{
+
+}
+
+void SurfaceTurbulence::WaveSimulation_kernel(int step)
+{
+	ComputeCurvature_kernel();
+	SeedWave_kernel(step);
+	EvolveWave_kernel();
+}
+
 void SurfaceTurbulence::SetHashTable_kernel(void)
 {
 	CalculateHash_kernel();
@@ -260,14 +293,14 @@ void SurfaceTurbulence::InitHostMem(void)
 	h_Flag.resize(_fluid->_numParticles * PER_PARTICLE);
 
 	////Wave Simulation
-	//h_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_Seed.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);
-	//h_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_Seed.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);
 
 }
 
@@ -289,14 +322,14 @@ void SurfaceTurbulence::InitDeviceMem()
 	d_Flag.resize(_fluid->_numParticles * PER_PARTICLE);				d_Flag.memset(0);
 
 	////Wave Simulation
-	//d_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);			d_Curvature.memset(0);
-	//d_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);		d_TempCurvature.memset(0);
-	//d_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);				d_WaveH.memset(0);
-	//d_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveDtH.memset(0);
-	//d_Seed.resize(_fluid->_numParticles * PER_PARTICLE);				d_Seed.memset(0);
-	//d_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);		d_WaveSeedAmp.memset(0);
-	//d_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);			d_Laplacian.memset(0);
-	//d_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveNormal.memset(0);
+	d_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);			d_Curvature.memset(0);
+	d_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);		d_TempCurvature.memset(0);
+	d_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);				d_WaveH.memset(0);
+	d_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveDtH.memset(0);
+	d_Seed.resize(_fluid->_numParticles * PER_PARTICLE);				d_Seed.memset(0);
+	d_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);		d_WaveSeedAmp.memset(0);
+	d_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);			d_Laplacian.memset(0);
+	d_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveNormal.memset(0);
 
 	//Hash
 	d_GridHash.resize(_fluid->_numParticles * PER_PARTICLE);			d_GridHash.memset(0);
@@ -323,14 +356,14 @@ void SurfaceTurbulence::FreeDeviceMem()
 	d_Flag.free();
 
 	////Wave Simulation
-	//d_Curvature.free();
-	//d_TempCurvature.free();
-	//d_WaveH.free();
-	//d_WaveDtH.free();
-	//d_Seed.free();
-	//d_WaveSeedAmp.free();
-	//d_Laplacian.free();
-	//d_WaveNormal.free();
+	d_Curvature.free();
+	d_TempCurvature.free();
+	d_WaveH.free();
+	d_WaveDtH.free();
+	d_Seed.free();
+	d_WaveSeedAmp.free();
+	d_Laplacian.free();
+	d_WaveNormal.free();
 
 	//Hash
 	d_GridHash.free();
@@ -353,14 +386,14 @@ void SurfaceTurbulence::CopyToDevice()
 	d_Flag.copyFromHost(h_Flag);
 
 	////Wave Simulation
-	//d_Curvature.copyFromHost(h_Curvature);
-	//d_TempCurvature.copyFromHost(h_TempCurvature);
-	//d_WaveH.copyFromHost(h_WaveH);
-	//d_WaveDtH.copyFromHost(h_WaveDtH);
-	//d_Seed.copyFromHost(h_Seed);
-	//d_WaveSeedAmp.copyFromHost(h_WaveSeedAmp);
-	//d_Laplacian.copyFromHost(h_Laplacian);
-	//d_WaveNormal.copyFromHost(h_WaveNormal);
+	d_Curvature.copyFromHost(h_Curvature);
+	d_TempCurvature.copyFromHost(h_TempCurvature);
+	d_WaveH.copyFromHost(h_WaveH);
+	d_WaveDtH.copyFromHost(h_WaveDtH);
+	d_Seed.copyFromHost(h_Seed);
+	d_WaveSeedAmp.copyFromHost(h_WaveSeedAmp);
+	d_Laplacian.copyFromHost(h_Laplacian);
+	d_WaveNormal.copyFromHost(h_WaveNormal);
 
 }
 
@@ -376,16 +409,16 @@ void SurfaceTurbulence::CopyToHost()
 	d_KernelDens.copyToHost(h_KernelDens);
 	d_NeighborWeightSum.copyToHost(h_NeighborWeightSum);
 	d_Flag.copyToHost(h_Flag);
-	////Wave Simulation
-	//d_Curvature.copyToHost(h_Curvature);
-	//d_TempCurvature.copyToHost(h_TempCurvature);
-	//d_WaveH.copyToHost(h_WaveH);
-	//d_WaveDtH.copyToHost(h_WaveDtH);
-	//d_Seed.copyToHost(h_Seed);
-	//d_WaveSeedAmp.copyToHost(h_WaveSeedAmp);
-	//d_Laplacian.copyToHost(h_Laplacian);
-	//d_WaveNormal.copyToHost(h_WaveNormal);
 
+	////Wave Simulation
+	d_Curvature.copyToHost(h_Curvature);
+	d_TempCurvature.copyToHost(h_TempCurvature);
+	d_WaveH.copyToHost(h_WaveH);
+	d_WaveDtH.copyToHost(h_WaveDtH);
+	d_Seed.copyToHost(h_Seed);
+	d_WaveSeedAmp.copyToHost(h_WaveSeedAmp);
+	d_Laplacian.copyToHost(h_Laplacian);
+	d_WaveNormal.copyToHost(h_WaveNormal);
 }
 
 void SurfaceTurbulence::draw(void)
@@ -397,8 +430,9 @@ void SurfaceTurbulence::draw(void)
 	for (uint i = 0u; i < _numFineParticles; i++)
 	{
 		REAL3 position = h_Pos[i];
-		//REAL3 surfaceNormal = h_SurfaceNormal[i];
-		REAL3 surfaceNormal = h_TempNormal[i];
+		REAL3 surfaceNormal = h_SurfaceNormal[i];
+		//REAL3 surfaceNormal = h_TempNormal[i];
+		REAL curvatrue = h_Curvature[i];
 		BOOL flag = h_Flag[i];
 
 		//////Draw normal
@@ -409,8 +443,12 @@ void SurfaceTurbulence::draw(void)
 		//glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
 		//glEnd();
 
+		////Curvature
+		REAL3 color = ScalarToColor(curvatrue * 1000);
+		glColor3f(color.x, color.y, color.z);
+		
 		////general visualize
-		glColor3f(1.0f, 0.0f, 0.0f);
+		//glColor3f(1.0f, 0.0f, 0.0f);
 
 		//if (flag) {
 		//	glColor3f(1.0f, 0.0f, 0.0f);
