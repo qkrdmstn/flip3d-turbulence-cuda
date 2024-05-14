@@ -812,6 +812,7 @@ static __inline__ __host__ __device__ void printAABB(const AABB& a)
 {
 	printf("Min: (%f, %f, %f)\nMax: (%f, %f, %f)\n", a._min.x, a._min.y, a._min.z, a._max.x, a._max.y, a._max.z);
 }
+
 inline __host__ __device__ __forceinline__ void resetAABB(AABB& aabb)
 {
 	aabb._min.x = aabb._min.y = aabb._min.z = DBL_MAX;
