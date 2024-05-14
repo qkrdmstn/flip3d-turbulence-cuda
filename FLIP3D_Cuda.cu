@@ -95,7 +95,8 @@ void FLIP3D_Cuda::PlaceObjects()
 	PlaceWalls();
 
 	//WaterDropTest();
-	DamBreakTest();
+	//DamBreakTest();
+	MovingBoxesTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -155,6 +156,16 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
 	obj.p[0].z = 1.0 - _wallThick;	obj.p[1].z = 1.0;
 	objects.push_back(obj);
+
+
+	//// Back Wall
+	//obj.type = WALL;
+	//obj.shape = BOX;
+	//obj.material = GLASS;
+	//obj.p[0].x = 0.5;				obj.p[1].x = 1.0;
+	//obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
+	//obj.p[0].z = 0.5;	obj.p[1].z = 1.0;
+	//objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::WaterDropTest()
@@ -187,7 +198,6 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
 	obj.p[0].z = 0.2;	obj.p[1].z = 0.8;
-
 	objects.push_back(obj);
 
 	obj.type = FLUID;
@@ -195,7 +205,6 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-
 	objects.push_back(obj);
 
 	////////Z  //이방향 nan 에러
@@ -248,6 +257,30 @@ void FLIP3D_Cuda::DamBreakTest()
 	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 
 	//objects.push_back(obj);
+}
+
+void FLIP3D_Cuda::MovingBoxesTest(void)
+{
+	OBB box;
+	box._center = make_REAL3(0.1, 0.12, 0.5);
+	box._center0 = box._center;
+	box._radius = make_REAL3(0.06, 0.12, 0.03);
+	computeCorners(box);
+	h_Boxes.push_back(box);
+
+	box._center = make_REAL3(0.7, 0.12, 0.5);
+	box._center0 = box._center;
+	box._radius = make_REAL3(0.06, 0.12, 0.03);
+	computeCorners(box);
+	h_Boxes.push_back(box);
+
+	Object obj;
+	obj.type = FLUID;
+	obj.shape = BOX;
+	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
+	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+	objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
@@ -304,6 +337,15 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 		}
 	}
 
+	for (int i = 0; i < h_Boxes.size(); i++)
+	{
+		for (auto box : h_Boxes) {
+			if (getDist(box, make_REAL3(x, y, z)) < 0.0f) {
+				inside_obj = NULL;
+			}
+		}
+	}
+
 	if (inside_obj) {
 		REAL _x = x + 0.01 * (inside_obj->type == FLUID) * 0.2 * ((rand() % 101) / 50.0 - 1.0) / _gridRes;
 		REAL _y = y + 0.01 * (inside_obj->type == FLUID) * 0.2 * ((rand() % 101) / 50.0 - 1.0) / _gridRes;
@@ -343,13 +385,25 @@ void FLIP3D_Cuda::ComputeWallParticleNormal_kernel()
 void FLIP3D_Cuda::ComputeParticleDensity_kernel()
 {
 	ComputeParticleDensity_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens, d_Flag());
+		(d_CurPos(), d_Type(), d_Dens(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles, _dens, _maxDens);
 }
 
 void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 {
 	CompExternlaForce_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
+}
+
+void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
+{
+	d_Boxes.copyToHost(h_Boxes);
+	RotateMovingBox_kernel(h_Boxes[0], true);
+	RotateMovingBox_kernel(h_Boxes[1], false);
+	d_Boxes.copyFromHost(h_Boxes);
+
+	uint numBoxes = h_Boxes.size();
+	CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, numBoxes, dt);
 }
 
 void FLIP3D_Cuda::SolvePICFLIP()
@@ -837,9 +891,8 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
 	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 
-	cudaMalloc((void**)&_raid1, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
-	cudaMalloc((void**)&_raid2, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
-	cudaMalloc((void**)&_raid3, sizeof(REAL) * _gridRes * _gridRes * _gridRes);
+	//OBB
+	d_Boxes.resize(h_Boxes.size());	d_Boxes.memset(0);
 }
 
 void FLIP3D_Cuda::FreeDeviceMem(void)
@@ -870,9 +923,8 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_gridDiv.free();
 	d_gridContent.free();
 
-	_raid1 = NULL;
-	_raid2 = NULL;
-	_raid3 = NULL;
+	//OBB
+	d_Boxes.free();
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
@@ -896,6 +948,9 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_gridLevelSet.copyFromHost(h_gridLevelSet);
 	d_gridDiv.copyFromHost(h_gridDiv);
 	d_gridContent.copyFromHost(h_gridContent);
+
+	//OBB
+	d_Boxes.copyFromHost(h_Boxes);
 }
 
 void FLIP3D_Cuda::CopyToHost(void)
@@ -919,6 +974,9 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_gridLevelSet.copyToHost(h_gridLevelSet);
 	d_gridDiv.copyToHost(h_gridDiv);
 	d_gridContent.copyToHost(h_gridContent);
+
+	//OBB
+	d_Boxes.copyToHost(h_Boxes);
 }
 
 void FLIP3D_Cuda::GridValueVisualize(void)
@@ -1102,6 +1160,61 @@ void FLIP3D_Cuda::draw(void)
 	glPopMatrix();
 }
 
+void  FLIP3D_Cuda::drawOBB(void)
+{
+	glPushMatrix();
+	glDisable(GL_LIGHTING);
+	for (int i = 0; i < h_Boxes.size(); i++)
+	{
+		REAL3 center = h_Boxes[i]._center;
+		REAL3* corner = h_Boxes[i]._corners;
+
+		//glPointSize(5.0);
+		//glColor3f(1.0f, 0.0f, 0.0f);
+		//glBegin(GL_POINTS);
+		//glVertex3f(center.x, center.y, center.z);
+		//glVertex3f((GLfloat)corner[0].x, (GLfloat)corner[0].y, (GLfloat)corner[0].z);
+		//glVertex3f((GLfloat)corner[1].x, (GLfloat)corner[1].y, (GLfloat)corner[1].z);
+		//glVertex3f((GLfloat)corner[2].x, (GLfloat)corner[2].y, (GLfloat)corner[2].z);
+		//glVertex3f((GLfloat)corner[3].x, (GLfloat)corner[3].y, (GLfloat)corner[3].z);
+		//glVertex3f((GLfloat)corner[4].x, (GLfloat)corner[4].y, (GLfloat)corner[4].z);
+		//glVertex3f((GLfloat)corner[5].x, (GLfloat)corner[5].y, (GLfloat)corner[5].z);
+		//glVertex3f((GLfloat)corner[6].x, (GLfloat)corner[6].y, (GLfloat)corner[6].z);
+		//glVertex3f((GLfloat)corner[7].x, (GLfloat)corner[7].y, (GLfloat)corner[7].z);
+		//glEnd();
+
+		glColor3f(1.0f, 0.0f, 0.0f);
+		glBegin(GL_LINES);
+		glVertex3f((GLfloat)corner[0].x, (GLfloat)corner[0].y, (GLfloat)corner[0].z);
+		glVertex3f((GLfloat)corner[1].x, (GLfloat)corner[1].y, (GLfloat)corner[1].z);
+		glVertex3f((GLfloat)corner[2].x, (GLfloat)corner[2].y, (GLfloat)corner[2].z);
+		glVertex3f((GLfloat)corner[3].x, (GLfloat)corner[3].y, (GLfloat)corner[3].z);
+		glVertex3f((GLfloat)corner[4].x, (GLfloat)corner[4].y, (GLfloat)corner[4].z);
+		glVertex3f((GLfloat)corner[5].x, (GLfloat)corner[5].y, (GLfloat)corner[5].z);
+		glVertex3f((GLfloat)corner[6].x, (GLfloat)corner[6].y, (GLfloat)corner[6].z);
+		glVertex3f((GLfloat)corner[7].x, (GLfloat)corner[7].y, (GLfloat)corner[7].z);
+		glVertex3f((GLfloat)corner[0].x, (GLfloat)corner[0].y, (GLfloat)corner[0].z);
+		glVertex3f((GLfloat)corner[4].x, (GLfloat)corner[4].y, (GLfloat)corner[4].z);
+		glVertex3f((GLfloat)corner[1].x, (GLfloat)corner[1].y, (GLfloat)corner[1].z);
+		glVertex3f((GLfloat)corner[5].x, (GLfloat)corner[5].y, (GLfloat)corner[5].z);
+		glVertex3f((GLfloat)corner[2].x, (GLfloat)corner[2].y, (GLfloat)corner[2].z);
+		glVertex3f((GLfloat)corner[6].x, (GLfloat)corner[6].y, (GLfloat)corner[6].z);
+		glVertex3f((GLfloat)corner[3].x, (GLfloat)corner[3].y, (GLfloat)corner[3].z);
+		glVertex3f((GLfloat)corner[7].x, (GLfloat)corner[7].y, (GLfloat)corner[7].z);
+		glVertex3f((GLfloat)corner[0].x, (GLfloat)corner[0].y, (GLfloat)corner[0].z);
+		glVertex3f((GLfloat)corner[2].x, (GLfloat)corner[2].y, (GLfloat)corner[2].z);
+		glVertex3f((GLfloat)corner[1].x, (GLfloat)corner[1].y, (GLfloat)corner[1].z);
+		glVertex3f((GLfloat)corner[3].x, (GLfloat)corner[3].y, (GLfloat)corner[3].z);
+		glVertex3f((GLfloat)corner[4].x, (GLfloat)corner[4].y, (GLfloat)corner[4].z);
+		glVertex3f((GLfloat)corner[6].x, (GLfloat)corner[6].y, (GLfloat)corner[6].z);
+		glVertex3f((GLfloat)corner[5].x, (GLfloat)corner[5].y, (GLfloat)corner[5].z);
+		glVertex3f((GLfloat)corner[7].x, (GLfloat)corner[7].y, (GLfloat)corner[7].z);
+		glEnd();
+	}
+	glEnable(GL_LIGHTING);
+	glPopMatrix();
+}
+
 REAL3 FLIP3D_Cuda::ScalarToColor(double val)
 {
 	double fColorMap[5][3] = { { 0,0,1 },{ 0,1,1 },{ 0,1,0 },{ 1,1,0 },{ 1,0,0 } };   //Red->Blue
@@ -1115,4 +1228,3 @@ REAL3 FLIP3D_Cuda::ScalarToColor(double val)
 	REAL3 color = make_REAL3(x, y, z);
 	return color;
 }
-

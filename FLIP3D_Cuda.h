@@ -7,6 +7,7 @@
 #include "thrust/sort.h"
 #include <GL/freeglut.h>
 #include "FLIPGrid.h"
+#include "BoundingBox.h"
 #include<stdio.h>
 
 #define BLOCK_SIZE 1024
@@ -26,7 +27,8 @@
 
 using namespace std;
 
-struct Object {
+struct Object 
+{
 	uint type;
 	uint shape;
 	uint material;
@@ -59,6 +61,9 @@ public:		//Device
 	Dvector<REAL> d_gridDiv;
 	Dvector<uint> d_gridContent;
 
+	//OBB
+	Dvector<OBB> d_Boxes;
+
 public:		//Host
 	//Particle
 	vector<REAL3> h_BeforePos;
@@ -81,10 +86,8 @@ public:		//Host
 	vector<REAL> h_gridDiv;
 	vector<uint> h_gridContent;
 
-public: //Solver
-	REAL* _raid1;
-	REAL* _raid2;
-	REAL* _raid3;
+	//OBB
+	vector<OBB> h_Boxes;
 
 public:		//Hash
 	Dvector<uint> d_GridHash;
@@ -126,6 +129,7 @@ public:		//Initialize
 	void PlaceWalls(void);
 	void WaterDropTest(void);
 	void DamBreakTest(void);
+	void MovingBoxesTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
 	void ComputeWallParticleNormal_kernel(void);
 
@@ -133,6 +137,7 @@ public:		//Simulation
 	void ResetCell_kernel(void);
 	void ComputeParticleDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
+	void CollisionMovingBox_kernel(REAL dt);
 	void SolvePICFLIP(void);
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);
@@ -176,6 +181,8 @@ public:		//Cuda
 public: 
 	void GridValueVisualize(void);
 	void draw(void);
+	void drawOBB(void);
 	REAL3 ScalarToColor(double val);
+
 };
 #endif

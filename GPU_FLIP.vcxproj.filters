@@ -47,6 +47,9 @@
     <ClInclude Include="WeightKernels.cuh">
       <Filter>헤더</Filter>
     </ClInclude>
+    <ClInclude Include="BoundingBox.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FLIP3D_Cuda.cu">

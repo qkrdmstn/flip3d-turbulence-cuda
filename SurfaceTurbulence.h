@@ -14,12 +14,12 @@ __host__ __device__
 struct WaveParam
 {
 	//Wave Simulation Coefficient
-	REAL _dt = 0.001;
-	REAL _waveSpeed = 4.0;
+	REAL _dt = 0.00125;
+	REAL _waveSpeed = 6.0;
 	REAL _waveSeedFreq = 2.0;
-	REAL _waveMaxAmplitude = 0.025;
+	REAL _waveMaxAmplitude = 0.0125;
 	REAL _waveMaxFreq = 400.0;
-	REAL _waveMaxSeedingAmplitude = 0.05;
+	REAL _waveMaxSeedingAmplitude = 0.025;
 	REAL _waveSeedingCurvatureThresholdMinimum;
 	REAL _waveSeedingCurvatureThresholdMaximum;
 	REAL _waveSeedStepSizeRatioOfMax = 0.025;
@@ -164,5 +164,6 @@ public:
 	void drawFineParticles(void);
 	void drawDisplayParticles(void);
 	REAL3 ScalarToColor(double val);
+	REAL3 VelocityToColor(double val);
 };
 #endif

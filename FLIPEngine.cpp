@@ -19,6 +19,7 @@ void	FLIPEngine::simulation(void)
 	_fluid->SetHashTable_kernel();
 	_fluid->ComputeParticleDensity_kernel();
 	_fluid->ComputeExternalForce_kernel(_gravity, _dt);
+	_fluid->CollisionMovingBox_kernel(_dt);
 
 	_fluid->SolvePICFLIP();
 
@@ -32,16 +33,16 @@ void	FLIPEngine::simulation(void)
 	if (_frame == 0) {
 		for (int i = 0; i < 24; i++) {
 			_turbulence->SurfaceMaintenance();
-			//if (i % 6 == 0)
-			//	printf("%.4f%\n", (float)(i + 1) / 24.0);
+			if (i % 6 == 0)
+				printf("%.4f%\n", (float)(i + 1) / 24.0);
 		}
 
 	}
 	else {
 		for (int i = 0; i < 4; i++) {
 			_turbulence->SurfaceMaintenance();
-			//if (i % 2 == 0)
-			//	printf("%.4f%\n", (float)(i + 1) / 4);
+			if (i % 2 == 0)
+				printf("%.4f%\n", (float)(i + 1) / 4);
 		}
 	}
 	printf("-------------- fineParticles %d --------------\n", _turbulence->_numFineParticles);
@@ -86,5 +87,5 @@ void FLIPEngine::draw(int option)
 		_turbulence->drawFineParticles();
 #endif
 	}
-
+	_fluid->drawOBB();
 }

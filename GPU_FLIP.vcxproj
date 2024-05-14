@@ -15,6 +15,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BoundingBox.h" />
     <ClInclude Include="FLIP3D_Cuda.cuh" />
     <ClInclude Include="FLIP3D_Cuda.h" />
     <ClInclude Include="FLIPEngine.h" />

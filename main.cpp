@@ -20,7 +20,7 @@ int _last_y = 0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
-int _drawOption = 4;
+int _drawOption = 3;
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
@@ -70,13 +70,13 @@ void Update(void)
 	if (_simulation) {
 #if SCREEN_CAPTURE
 		if (_frame <= 1000) {
-			string path = "image\\gridvisualize\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\TurbulenceBoxCoupling2Visualize\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
 #endif
 		frame++;
-		curTime = glutGet(GLUT_ELAPSED_TIME);
+		curTime = glutGet(GLUT_ELAPSED_TIME); 
 		if (curTime - timebase > 1000)
 		{
 			fps = frame * 1000.0 / (curTime - timebase);
@@ -86,7 +86,7 @@ void Update(void)
 
 		_engine->simulation();
 
-		//if (_frame == 280) {
+		//if (_frame == 600) {
 		//	exit(0);
 		//}
 		_frame++;

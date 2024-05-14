@@ -116,7 +116,7 @@ __global__ void ResetCell_D(VolumeCollection volumes, uint gridRes) {
 
 }
 
-__global__ void ComputeParticleDensity_D(REAL3* pos, uint* type, REAL* dens, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles, REAL densVal, REAL maxDens, BOOL* flag)
+__global__ void ComputeParticleDensity_D(REAL3* pos, uint* type, REAL* dens, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles, REAL densVal, REAL maxDens)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numParticles)
@@ -172,6 +172,63 @@ __global__ void CompExternlaForce_D(REAL3* pos, REAL3* vel, REAL3 gravity, REAL3
 	v += gravity * dt;
 	v += ext * dt;
 	vel[idx] = v;
+}
+
+__global__ void CollisionMovingBox_D(OBB* boxes, REAL3* _pos, REAL3* _vel, uint* type, uint numParticles, uint numBoxes, REAL dt)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numParticles)
+		return;
+	if (type[idx] != FLUID) return;
+
+	REAL delta_tau = 0.01;
+	REAL new_phi = 0.0, phi = 0.0;
+	REAL friction_coeff = 0.3;
+	REAL collision_objects_normal_variation = 0.0;
+	REAL particle_normal_variation = 0.0;
+	REAL new_particle_noraml_variaion = 0.0;
+
+	REAL3 velocity_collision_objects = make_REAL3(0, 0, 0);
+	REAL3 collision_objects_tangential_variation = make_REAL3(0, 0, 0);
+	REAL3 particle_tangential_variation = make_REAL3(0, 0, 0);
+	REAL3 relative_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 new_relative_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 new_particle_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 collision_normal = make_REAL3(0, 0, 0);
+	REAL offset = 0.01;
+
+	for (int i = 0; i < numBoxes; i++) {
+
+		for (int j = 0; j < 10; j++) {
+			REAL3 box_vel = boxes[i]._center - boxes[i]._center0;
+
+			REAL3 pos = _pos[idx];
+			phi = getDist(boxes[i], pos);
+			REAL3 vel = _vel[idx];
+
+			collision_normal.x = getDist(boxes[i], make_REAL3(pos.x + offset, pos.y, pos.z)) - getDist(boxes[i], make_REAL3(pos.x - offset, pos.y, pos.z));
+			collision_normal.y = getDist(boxes[i], make_REAL3(pos.x, pos.y + offset, pos.z)) - getDist(boxes[i], make_REAL3(pos.x, pos.y - offset, pos.z));
+			collision_normal.z = getDist(boxes[i], make_REAL3(pos.x, pos.y, pos.z + offset)) - getDist(boxes[i], make_REAL3(pos.x, pos.y, pos.z - offset));
+			Normalize(collision_normal);
+
+			new_phi = phi + Dot(((vel - box_vel) * dt), collision_normal);
+			if (new_phi < 0.0f)
+			{
+				collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
+				particle_normal_variation = Dot(vel, collision_normal);
+				collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
+				particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
+				new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
+				relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
+				new_relative_tangential_vel = relative_tangential_vel
+					* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
+
+				new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
+				REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
+				_vel[idx] = new_vel;
+			}
+		}
+	}
 }
 
 __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* vel, uint* type, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles)
@@ -1243,5 +1300,6 @@ __global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* g
 
 	
 }
+
 
 #endif
