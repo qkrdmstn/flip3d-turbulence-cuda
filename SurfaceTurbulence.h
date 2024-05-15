@@ -15,9 +15,9 @@ struct WaveParam
 {
 	//Wave Simulation Coefficient
 	REAL _dt = 0.00125;
-	REAL _waveSpeed = 6.0;
+	REAL _waveSpeed = 4.0;
 	REAL _waveSeedFreq = 2.0;
-	REAL _waveMaxAmplitude = 0.0125;
+	REAL _waveMaxAmplitude ;
 	REAL _waveMaxFreq = 400.0;
 	REAL _waveMaxSeedingAmplitude = 0.025;
 	REAL _waveSeedingCurvatureThresholdMinimum;

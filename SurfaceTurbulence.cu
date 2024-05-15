@@ -16,14 +16,11 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	_outerRadius = _coarseScaleLen;
 	_innerRadius = _outerRadius / 2.0;
 
-	waveParam._waveSeedingCurvatureThresholdMinimum = _coarseScaleLen * 0.015; //°î·ü ÀÓ°è°ª (Á¶Á¤ ÇÊ¿ä)
-	waveParam._waveSeedingCurvatureThresholdMaximum = _coarseScaleLen * 0.077;
-
 	InitHostMem();
 	InitDeviceMem();
 	CopyToDevice();
 
-	//InitWaveParam();
+	InitWaveParam();
 	Initialize_kernel();
 	printf("Coarse Scale Length: %f\n", _coarseScaleLen);
 	printf("Fine Scale Length: %f\n", _fineScaleLen);
@@ -40,7 +37,17 @@ SurfaceTurbulence:: ~SurfaceTurbulence()
 
 void SurfaceTurbulence::InitWaveParam(void)
 {
-
+	waveParam._dt = 0.00125;
+	//res == 32 -> 6.0 or 4.0
+	//res == 64 -> 2.0
+	waveParam._waveSpeed = 3.0;
+	waveParam._waveSeedFreq = 2.0;
+	waveParam._waveMaxAmplitude = _coarseScaleLen;
+	waveParam._waveMaxFreq = 400.0;
+	waveParam._waveMaxSeedingAmplitude = 2 * _coarseScaleLen;;
+	waveParam._waveSeedingCurvatureThresholdMinimum = _coarseScaleLen * 0.007;
+	waveParam._waveSeedingCurvatureThresholdMaximum = _coarseScaleLen * 0.15;
+	waveParam._waveSeedStepSizeRatioOfMax = 0.025;
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -537,7 +544,7 @@ void SurfaceTurbulence::drawFineParticles(void)
 {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
-	glPointSize(2.0);
+	glPointSize(1.0);
 	glLineWidth(1.0);
 	for (uint i = 0u; i < _numFineParticles; i++)
 	{
@@ -578,7 +585,7 @@ void SurfaceTurbulence::drawFineParticles(void)
 		//glColor3f(color.x, color.y, color.z);
 		
 		////////Laplacian visualize
-		//REAL3 color = ScalarToColor(laplacian);
+		//REAL3 color = ScalarToColor(laplacian * 10000);
 		//glColor3f(color.x, color.y, color.z);
 
 		//if (flag) {
@@ -600,7 +607,7 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
-	glPointSize(2.0);
+	glPointSize(1.0);
 	glLineWidth(1.0);
 	for (uint i = 0u; i < _numFineParticles; i++)
 	{

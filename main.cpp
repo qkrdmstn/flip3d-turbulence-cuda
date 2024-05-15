@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -70,7 +70,7 @@ void Update(void)
 	if (_simulation) {
 #if SCREEN_CAPTURE
 		if (_frame <= 1000) {
-			string path = "image\\TurbulenceBoxCoupling2Visualize\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\128\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}

@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 32
+#define RES 64
 #define TURBULENCE 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
