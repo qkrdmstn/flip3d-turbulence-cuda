@@ -13,8 +13,8 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	_fineScaleLen = PI * (_coarseScaleLen + (_coarseScaleLen / 2.0)) / SURFACE_DENSITY;
 	_hashGridRes = _baseRes * 4;
 
-	_outerRadius = _coarseScaleLen;
-	_innerRadius = _outerRadius / 2.0;
+	_outerRadius = _coarseScaleLen; //_coarseScaleLen;
+	_innerRadius = _outerRadius / 2.0;  //_outerRadius / 2;
 
 	InitHostMem();
 	InitDeviceMem();
@@ -28,6 +28,7 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	CopyToHost();
 	printf("Initialize coarse-particles number is %d\n", _fluid->_numParticles);
 	printf("Initialize fine-particles number is %d\n", _numFineParticles);
+	cudaDeviceSynchronize();
 }
 
 SurfaceTurbulence:: ~SurfaceTurbulence()

@@ -3,12 +3,15 @@
 
 #include "FLIP3D_Cuda.h"
 #include "SurfaceTurbulence.h"
+#include "MarchingCubesCuda.h"
 
 class FLIPEngine
 {
 public:
 	FLIP3D_Cuda* _fluid;
 	SurfaceTurbulence* _turbulence;
+	MarchingCubes_CUDA* _MC;
+
 public:
 	AABB			_boundary;
 public:

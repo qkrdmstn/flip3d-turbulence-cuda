@@ -15,6 +15,9 @@
     <ClCompile Include="FLIPEngine.cpp">
       <Filter>소스</Filter>
     </ClCompile>
+    <ClCompile Include="MarchingCubesCuda.cpp">
+      <Filter>소스</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FLIP3D_Cuda.h">
@@ -50,6 +53,18 @@
     <ClInclude Include="BoundingBox.h">
       <Filter>헤더</Filter>
     </ClInclude>
+    <ClInclude Include="defines.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="tables.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="MarchingCubesCuda.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="Vec3.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FLIP3D_Cuda.cu">
@@ -62,6 +77,9 @@
       <Filter>소스</Filter>
     </CudaCompile>
     <CudaCompile Include="SurfaceTurbulence.cu">
+      <Filter>소스</Filter>
+    </CudaCompile>
+    <CudaCompile Include="MarchingCubes.cu">
       <Filter>소스</Filter>
     </CudaCompile>
   </ItemGroup>

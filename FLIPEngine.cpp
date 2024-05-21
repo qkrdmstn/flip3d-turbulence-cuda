@@ -1,7 +1,7 @@
 #include "FLIPEngine.h"
 
-#define RES 64
-#define TURBULENCE 1
+#define RES 80
+#define TURBULENCE 0
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
@@ -11,10 +11,14 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_fluid = new FLIP3D_Cuda(RES);
 	_turbulence = new SurfaceTurbulence(_fluid, RES);
 	_fluid->CopyToHost();
+	_MC = new MarchingCubes_CUDA();
+	//MC
+	_MC->init(_fluid, _turbulence, RES, RES, RES);
 }
 
 void	FLIPEngine::simulation(void)
 {
+
 	printf("-------------- Step %d --------------\n", _frame);
 	_fluid->SetHashTable_kernel();
 	_fluid->ComputeParticleDensity_kernel();
@@ -49,6 +53,10 @@ void	FLIPEngine::simulation(void)
 	_turbulence->WaveSimulation_kernel(_frame);
 #endif
 
+	//MC
+	_MC->init(_fluid, _turbulence, RES, RES, RES);
+	_MC->MarchingCubes();
+
 	_fluid->CopyToHost();
 
 #if TURBULENCE
@@ -66,26 +74,27 @@ void	FLIPEngine::reset(void)
 
 void FLIPEngine::draw(int option)
 {
-	if (option == 1) {
-		_fluid->draw();
-#if TURBULENCE
-		_turbulence->drawDisplayParticles();
-#endif
-	}
-	else if (option == 2) {
-		_fluid->draw();
-#if TURBULENCE
-		_turbulence->drawFineParticles();
-#endif
-	}
-	else if (option == 3)
-		_fluid->draw();
-	else if (option == 4) 
-		_turbulence->drawDisplayParticles();
-	else if (option == 5) {
-#if TURBULENCE
-		_turbulence->drawFineParticles();
-#endif
-	}
+//	if (option == 1) {
+//		_fluid->draw();
+//#if TURBULENCE
+//		_turbulence->drawDisplayParticles();
+//#endif
+//	}
+//	else if (option == 2) {
+//		_fluid->draw();
+//#if TURBULENCE
+//		_turbulence->drawFineParticles();
+//#endif
+//	}
+//	else if (option == 3)
+//		_fluid->draw();
+//	else if (option == 4) 
+//		_turbulence->drawDisplayParticles();
+//	else if (option == 5) {
+//#if TURBULENCE
+//		_turbulence->drawFineParticles();
+//#endif
+//	}
 	_fluid->drawOBB();
+	_MC->renderSurface();
 }

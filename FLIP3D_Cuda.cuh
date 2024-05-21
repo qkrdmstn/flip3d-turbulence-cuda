@@ -1012,9 +1012,9 @@ __global__ void SubtarctGrid_D(VolumeCollection volumes, uint gridRes)
 	volumes.velSave.writeSurface<REAL4>(newVel, x, y, z);
 }
 
-__device__ inline REAL3 lerp(REAL3 v0, REAL3 v1, REAL t) {
-	return (1 - t) * v0 + t * v1;
-}
+//__device__ inline REAL3 lerp(REAL3 v0, REAL3 v1, REAL t) {
+//	return (1 - t) * v0 + t * v1;
+//}
 
 __device__ REAL3 GetLerpValueAtPoint(VolumeData data, REAL x, REAL y, REAL z, uint gridRes)
 {

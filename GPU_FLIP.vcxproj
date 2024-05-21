@@ -13,17 +13,22 @@
   <ItemGroup>
     <ClCompile Include="FLIPEngine.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MarchingCubesCuda.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BoundingBox.h" />
+    <ClInclude Include="defines.h" />
     <ClInclude Include="FLIP3D_Cuda.cuh" />
     <ClInclude Include="FLIP3D_Cuda.h" />
     <ClInclude Include="FLIPEngine.h" />
     <ClInclude Include="FLIPGrid.cuh" />
     <ClInclude Include="FLIPGrid.h" />
     <ClInclude Include="Hash.cuh" />
+    <ClInclude Include="MarchingCubesCuda.h" />
     <ClInclude Include="SurfaceTurbulence.cuh" />
     <ClInclude Include="SurfaceTurbulence.h" />
+    <ClInclude Include="tables.h" />
+    <ClInclude Include="Vec3.h" />
     <ClInclude Include="VolumeData.cuh" />
     <ClInclude Include="WeightKernels.cuh" />
   </ItemGroup>
@@ -31,6 +36,7 @@
     <CudaCompile Include="FLIP3D_Cuda.cu" />
     <CudaCompile Include="FLIPGrid.cu" />
     <CudaCompile Include="Hash.cu" />
+    <CudaCompile Include="MarchingCubes.cu" />
     <CudaCompile Include="SurfaceTurbulence.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

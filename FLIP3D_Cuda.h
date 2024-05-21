@@ -8,7 +8,7 @@
 #include <GL/freeglut.h>
 #include "FLIPGrid.h"
 #include "BoundingBox.h"
-#include<stdio.h>
+#include <stdio.h>
 
 #define BLOCK_SIZE 1024
 
@@ -99,7 +99,6 @@ public:
 	FLIPGRID* _grid;
 
 public:
-	uint _iterations = 100u;
 	uint _numParticles;
 	uint _gridRes;
 
