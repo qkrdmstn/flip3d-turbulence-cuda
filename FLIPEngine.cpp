@@ -1,7 +1,9 @@
 #include "FLIPEngine.h"
 
-#define RES 80
-#define TURBULENCE 0
+#define RES 64
+#define RENDERRES 256
+#define TURBULENCE 1
+#define SURFACERECONSTRUCTION 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
@@ -13,7 +15,7 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_fluid->CopyToHost();
 	_MC = new MarchingCubes_CUDA();
 	//MC
-	_MC->init(_fluid, _turbulence, RES, RES, RES);
+	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
 }
 
 void	FLIPEngine::simulation(void)
@@ -54,7 +56,6 @@ void	FLIPEngine::simulation(void)
 #endif
 
 	//MC
-	_MC->init(_fluid, _turbulence, RES, RES, RES);
 	_MC->MarchingCubes();
 
 	_fluid->CopyToHost();
@@ -72,29 +73,61 @@ void	FLIPEngine::reset(void)
 
 }
 
-void FLIPEngine::draw(int option)
+void FLIPEngine::draw(bool flag1, bool flag2, bool flag3)
 {
-//	if (option == 1) {
-//		_fluid->draw();
-//#if TURBULENCE
-//		_turbulence->drawDisplayParticles();
-//#endif
-//	}
-//	else if (option == 2) {
-//		_fluid->draw();
-//#if TURBULENCE
-//		_turbulence->drawFineParticles();
-//#endif
-//	}
-//	else if (option == 3)
-//		_fluid->draw();
-//	else if (option == 4) 
-//		_turbulence->drawDisplayParticles();
-//	else if (option == 5) {
-//#if TURBULENCE
-//		_turbulence->drawFineParticles();
-//#endif
-//	}
+	if (flag1)
+		_fluid->draw();
+
+#if TURBULENCE
+	if (flag2)
+		_turbulence->drawDisplayParticles();
+#endif
+
+#if SURFACERECONSTRUCTION
+	if (flag3)
+		_MC->renderSurface();
+#endif
 	_fluid->drawOBB();
-	_MC->renderSurface();
+	drawBoundary();
+}
+
+void	FLIPEngine::drawBoundary()
+{
+	glPushMatrix();
+	glDisable(GL_LIGHTING);
+	glPointSize(1.0);
+	glLineWidth(0.5f);
+	glColor3f(1.0f, 1.0f, 1.0f);
+
+	glBegin(GL_LINES);
+	glVertex3d(0.0f, 0.0f, 0.0f);
+	glVertex3d(0.0f, 0.0f, 1.0f);
+	glVertex3d(0.0f, 0.0f, 0.0f);
+	glVertex3d(0.0f, 1.0f, 0.0f);
+	glVertex3d(0.0f, 0.0f, 0.0f);
+	glVertex3d(1.0f, 0.0f, 0.0f);
+	glVertex3d(1.0f, 1.0f, 1.0f);
+	glVertex3d(1.0f, 1.0f, 0.0f);
+	glVertex3d(1.0f, 1.0f, 1.0f);
+	glVertex3d(1.0f, 0.0f, 1.0f);
+	glVertex3d(1.0f, 1.0f, 1.0f);
+	glVertex3d(0.0f, 1.0f, 1.0f);
+	glVertex3d(1.0f, 0.0f, 0.0f);
+	glVertex3d(1.0f, 1.0f,0.0f);
+	glVertex3d(1.0f, 0.0f, 0.0f);
+	glVertex3d(1.0f, 0.0f, 1.0f);
+	glVertex3d(0.0f, 1.0f, 0.0f);
+	glVertex3d(0.0f, 1.0f, 1.0f);
+	glVertex3d(0.0f, 1.0f, 0.0f);
+	glVertex3d(1.0f, 1.0f, 0.0f);
+	glVertex3d(0.0f, 0.0f, 1.0f);
+	glVertex3d(0.0f, 1.0f, 1.0f);
+	glVertex3d(1.0f, 0.0f, 1.0f);
+	glVertex3d(0.0f, 0.0f, 1.0f);
+	glEnd();
+
+
+	glPointSize(1.0);
+	glEnable(GL_LIGHTING);
+	glPopMatrix();
 }

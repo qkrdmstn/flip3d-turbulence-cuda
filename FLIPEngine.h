@@ -31,7 +31,8 @@ public:
 	void	simulation(void);
 	void	reset(void);
 public:
-	void	draw(int option);
+	void	draw(bool flag1, bool flag2, bool flag3);
+	void	drawBoundary();
 };
 
 #endif

@@ -20,7 +20,10 @@ int _last_y = 0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
-int _drawOption = 3;
+bool _fluidFlag = true;
+bool _turbulenceFlag = true;
+bool _surfaceReconstructionFlag = true;
+
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
@@ -135,7 +138,7 @@ void Draw(void)
 	glEnable(GL_LIGHTING); // 조명 활성화
 	glEnable(GL_LIGHT0); // 첫번째 조명
 
-	_engine->draw(_drawOption);
+	_engine->draw(_fluidFlag, _turbulenceFlag, _surfaceReconstructionFlag);
 	glDisable(GL_LIGHTING);
 
 	char text[100];
@@ -148,7 +151,7 @@ void Draw(void)
 
 void Display(void)
 {
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 
@@ -183,24 +186,25 @@ void Keyboard(unsigned char key, int x, int y)
 	case 'q':
 		exit(0);
 	case '1':
-		printf("Draw mode: FLIP & Display\n");
-		_drawOption = 1;
+		_fluidFlag = !_fluidFlag;
+		if (_fluidFlag)
+			printf("FLIP render On\n");
+		else
+			printf("FLIP render Off\n");
 		break;
 	case '2':
-		printf("Draw mode: FLIP & Fine\n");
-		_drawOption = 2;
+		_turbulenceFlag = !_turbulenceFlag;
+		if (_turbulenceFlag)
+			printf("Turbulence render On\n");
+		else
+			printf("Turbulence render Off\n");
 		break;
 	case '3':
-		printf("Draw mode: FLIP\n");
-		_drawOption = 3;
-		break;
-	case '4':
-		printf("Draw mode: Display\n");
-		_drawOption = 4;
-		break;
-	case '5':
-		printf("Draw mode: Fine\n");
-		_drawOption = 5;
+		_surfaceReconstructionFlag = !_surfaceReconstructionFlag;
+		if (_surfaceReconstructionFlag)
+			printf("MarchingCube render On\n");
+		else
+			printf("MarchingCube render Off\n");
 		break;
 	case ' ':
 		_simulation = !_simulation;

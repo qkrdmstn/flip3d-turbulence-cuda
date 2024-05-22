@@ -117,55 +117,23 @@ void MarchingCubes_CUDA::init(FLIP3D_Cuda* fluid, SurfaceTurbulence* turbulence,
 
 	_set = true;
 
-
 	_fluid = fluid;
 	_turbulence = turbulence;
-
-	_numTotalParticles = _fluid->_numParticles /*+ _turbulence->_numFineParticles*/;
-	printf("MC INit %d\n", _numTotalParticles);
-
-	memSize = sizeof(REAL3) * _numTotalParticles * 2;
-	cudaMalloc((void**)&d_TotalParticles, memSize);
-	cudaMemset((void*)d_TotalParticles, 0, memSize);
-
-	memSize = sizeof(uint) * _numTotalParticles * 2;
-	cudaMalloc((void**)&d_Type, memSize);
-	cudaMemset((void*)d_Type, 0, memSize);
-	
-	cudaMalloc((void**)&d_GridHash, memSize);
-	cudaMemset((void*)d_GridHash, 0, memSize);
-
-	cudaMalloc((void**)&d_GridIdx, memSize);
-	cudaMemset((void*)d_GridIdx, 0, memSize);
-
-	cudaMalloc((void**)&d_CellStart, memSize);
-	cudaMemset((void*)d_CellStart, 0, memSize);
-
-	cudaMalloc((void**)&d_CellEnd, memSize);
-	cudaMemset((void*)d_CellEnd, 0, memSize);
+	hashRes = _fluid->_gridRes;
 
 	memSize = sizeof(REAL3) * _numVoxel;
 	cudaMalloc((void**)&d_gridPosition, memSize);
 	cudaMemset((void*)d_gridPosition, 0, memSize);
 
+	memSize = sizeof(uint) * _numVoxel;
+	cudaMalloc(&d_CellStart, memSize);
+	cudaMalloc(&d_CellEnd, memSize);
 
+	//Visualize Init
 	h_gridPosition = (REAL3*)malloc(sizeof(REAL3) * _numVoxel * 1);
 	memset(h_gridPosition, 0, sizeof(REAL3)* _numVoxel * 1);
 	h_level = (REAL*)malloc(sizeof(REAL)* _numVoxel * 1);
 	memset(h_level, 0, sizeof(REAL)* _numVoxel * 1);
-
-	h_totalParticles = (REAL3*)malloc(sizeof(REAL3) * _numTotalParticles * 1);
-	memset(h_totalParticles, 0, sizeof(REAL3)* _numTotalParticles * 1);
-	h_Type = (uint*)malloc(sizeof(uint) * _numTotalParticles * 1);
-	memset(h_Type, 0, sizeof(uint)* _numTotalParticles * 1);
-
-
-	memSize = sizeof(BOOL) * _numTotalParticles;
-	cudaMalloc((void**)&d_Flag, memSize);
-	cudaMemset((void*)d_Flag, 0, memSize);
-
-	h_Flag = (BOOL*)malloc(sizeof(BOOL) * _numTotalParticles * 1);
-	memset(h_Flag, 0, sizeof(BOOL)* _numTotalParticles * 1);
 
 	h_Vertices.resize(_maxVertices * 2);
 	h_VertexNormals.resize(_maxVertices * 2);
@@ -197,10 +165,7 @@ void MarchingCubes_CUDA::free(void)
 		if (_4VertexPos != 0) std::free(_4VertexPos);
 		_set = false;
 
-		cudaFree(d_TotalParticles);
-		cudaFree(d_Type);
-		cudaFree(d_GridHash);
-		cudaFree(d_GridIdx);
+		cudaFree(d_gridPosition);
 		cudaFree(d_CellStart);
 		cudaFree(d_CellEnd);
 	}
@@ -277,14 +242,11 @@ void MarchingCubes_CUDA::copyCPU(vector<vec3> &vertices, vector<vec3> &normals, 
 
 	cudaMemcpy(h_level, _volume, sizeof(REAL) * _numVoxel, cudaMemcpyDeviceToHost);
 	cudaMemcpy(h_gridPosition, d_gridPosition, sizeof(REAL3) * _numVoxel, cudaMemcpyDeviceToHost);
-	cudaMemcpy(h_totalParticles, d_TotalParticles, sizeof(REAL3) * _numTotalParticles, cudaMemcpyDeviceToHost);
-	cudaMemcpy(h_Type, d_Type, sizeof(uint) * _numTotalParticles, cudaMemcpyDeviceToHost);
-	cudaMemcpy(h_Flag, d_Flag, sizeof(BOOL) * _numTotalParticles, cudaMemcpyDeviceToHost);
 }
 
 void MarchingCubes_CUDA::SetHashTable_kernel(void)
 {
-	CalculateHash_kernel(d_GridHash, d_GridIdx, d_TotalParticles, _gridSize.x, _numTotalParticles);
+	CalculateHash_kernel(d_GridHash, d_GridIdx, d_TotalParticles, hashRes, _numTotalParticles);
 	SortParticle_kernel(d_GridHash, d_GridIdx, _numTotalParticles);
 	FindCellStart_kernel(d_GridHash, d_CellStart, d_CellEnd, _numTotalParticles);
 }
@@ -388,13 +350,41 @@ void MarchingCubes_CUDA::Smoothing(void)
 
 void MarchingCubes_CUDA::MarchingCubes()
 {
+	_numTotalParticles = _fluid->_numParticles + _turbulence->_numFineParticles;
+	printf("MC INit %d\n", _numTotalParticles);
+	
+	unsigned int memSize = sizeof(REAL3) * _numTotalParticles;
+	cudaMalloc(&d_TotalParticles, memSize);
+	cudaMemset(d_TotalParticles, 0, memSize);
+
+	memSize = sizeof(uint) * _numTotalParticles;
+	cudaMalloc(&d_Type, memSize);
+	cudaMemset(d_Type, 0, memSize);
+
+	cudaMalloc(&d_GridHash, memSize);
+	cudaMemset(d_GridHash, 0, memSize);
+
+	cudaMalloc(&d_GridIdx, memSize);
+	cudaMemset(d_GridIdx, 0, memSize);
+
+	memSize = sizeof(uint) * _numVoxel;
+	cudaMemset(d_CellStart, 0, memSize);
+
+	cudaMemset(d_CellEnd, 0, memSize);
+
 	CopyToTotalParticles_kernel(_fluid, _turbulence, d_TotalParticles, d_Type, _numTotalParticles);
 	SetHashTable_kernel();
-	ComputeLevelset_kernel(d_Flag, d_gridPosition, d_TotalParticles, d_Type, _volume, d_GridIdx, d_CellStart, d_CellEnd, _numTotalParticles, _gridSize);
-	surfaceRecon(-0.0f);
+	ComputeLevelset_kernel(d_gridPosition, d_TotalParticles, d_Type, _volume, d_GridIdx,d_CellStart, d_CellEnd, _numTotalParticles, _gridSize, hashRes);
+	surfaceRecon(0.0f);
 	Smoothing();
 
 	copyCPU(h_Vertices, h_VertexNormals, h_Faces);
+
+	cudaFree(d_TotalParticles);
+	cudaFree(d_Type);
+	cudaFree(d_GridHash);
+	cudaFree(d_GridIdx);
+
 }
 
 REAL3 ScalarToColor(double val)
@@ -425,7 +415,7 @@ void MarchingCubes_CUDA::renderSurface(void)
 		for (int j = 0; j < 3; j++) {
 			vec3 vertexNormal = h_VertexNormals[h_Faces[i * 3 + j]];
 			vec3 vertex = h_Vertices[h_Faces[i * 3 + j]];
-			glNormal3d(-1*vertexNormal.x(), -1 * vertexNormal.y(), -1 * vertexNormal.z());
+			glNormal3d(vertexNormal.x(), vertexNormal.y(), vertexNormal.z());
 			glVertex3d(vertex.x(), vertex.y(), vertex.z());
 		}
 		glEnd();
@@ -438,51 +428,20 @@ void MarchingCubes_CUDA::renderSurface(void)
 	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
 	glFlush();
 
-	glPushMatrix();
-	glDisable(GL_LIGHTING);
-	glPointSize(1.0);
-	for (uint i = 0u; i < _numVoxel; i++)
-	{
-		REAL3 position = h_gridPosition[i];
-		REAL level = h_level[i];
-
-		if (isnan(level))
-			continue;
-		if (fabs(level) < 0.0501f)
-			continue;
-		REAL3 color = ScalarToColor(fabs(level));
-		glColor3f(color.x, color.y, color.z);
-
-		glBegin(GL_POINTS);
-		glVertex3d(position.x, position.y, position.z);
-		glEnd();
-	}
-	glPointSize(1.0);
-	glEnable(GL_LIGHTING);
-	glPopMatrix();
-
-
 	//glPushMatrix();
 	//glDisable(GL_LIGHTING);
 	//glPointSize(1.0);
-	//for (uint i = 0u; i < _numTotalParticles; i++)
+	//for (uint i = 0u; i < _numVoxel; i++)
 	//{
-	//	REAL3 position = h_totalParticles[i];
-	//	uint type = h_Type[i];
-	//	BOOL flag = h_Flag[i];
+	//	REAL3 position = h_gridPosition[i];
+	//	REAL level = h_level[i];
 
-	//	if (type == WALL) {
-	//		continue;
-	//		glColor3f(1.0f, 1.0f, 1.0f);
-	//	}
-	//	else
-	//		glColor3f(0.0f, 1.0f, 1.0f);
-
-	//	if (flag) {
-	//		glColor3f(1.0f, 0.0f, 0.0f);
-	//	}
-	//	else
-	//		glColor3f(0.0f, 1.0f, 1.0f);
+	//	//if (isnan(level))
+	//	//	continue;
+	//	//if (fabs(level) > 0.8501f)
+	//	//	continue;
+	//	REAL3 color = ScalarToColor(fabs(level));
+	//	glColor3f(color.x, color.y, color.z);
 
 	//	glBegin(GL_POINTS);
 	//	glVertex3d(position.x, position.y, position.z);

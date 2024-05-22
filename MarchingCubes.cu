@@ -349,7 +349,7 @@ void NormalizeKernel(float3 *v, int nv)
 void InitTableMC(void)
 {
 	cudaMalloc((void**)&g_puEdgeTable, 256 * sizeof(uint));
-	cudaMemcpy(&g_puEdgeTable, edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
+	cudaMemcpy(g_puEdgeTable, edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
 
 	cudaChannelFormatDesc channelDesc =
 		cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindUnsigned);
@@ -568,8 +568,8 @@ void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbul
 	CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
 
-	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
+	CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 }
 
 void CalculateHash_kernel(uint* d_GridHash, uint* d_GridIdx, REAL3* d_TotalParticles, uint res, uint _numTotalParticles)
@@ -601,30 +601,26 @@ void FindCellStart_kernel(uint* d_GridHash, uint* d_CellStart, uint* d_CellEnd,u
 		(d_GridHash, d_CellStart, d_CellEnd, _numTotalParticles);
 }
 
-
 __device__ float hypotLength(float3 p)
 {
 	return (float)hypot(hypot((double)p.x, (double)p.y), (double)p.z);
 }
 
-__global__ void ComputeLevelSetKernel(BOOL* flag, REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numParticles, uint3 res, float3 pos0, float3 gridLength)
+__global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numParticles, uint3 res, uint hashRes, float3 pos0, float3 gridLength)
 {
 	uint id = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
 	uint index = __mul24(id, blockDim.x) + threadIdx.x;
 
-	REAL cellSize = 1.0 / res.x;
-	REAL3 pos = particles[index];
-	int3 gridIndex = calcGridPos(pos, cellSize);
-
-	if (gridIndex.x == 15 && gridIndex.y == 1 && gridIndex.z == 15)
-		flag[index] = true;
+	uint3 gridIndex = calcGridIdxU(index, res);
 
 	if (gridIndex.x < res.x && gridIndex.y < res.y && gridIndex.z < res.z) {
-		float3 pos1;
-		pos1.x = (float)gridIndex.x / (float)res.x;
-		pos1.y = (float)gridIndex.y / (float)res.y;
-		pos1.z = (float)gridIndex.z / (float)res.z;
-		int3 gridPos = calcGridPos(pos1, cellSize);
+		float3 pos;
+		pos.x = (float)gridIndex.x / (float)res.x;
+		pos.y = (float)gridIndex.y / (float)res.y;
+		pos.z = (float)gridIndex.z / (float)res.z;
+
+		REAL cellSize = 1.0 / (REAL)hashRes;
+		int3 gridPos = calcGridPos(pos, cellSize);
 		
 		float r = 0.0f;
 		double wsum = 0.0f;
@@ -633,13 +629,14 @@ __global__ void ComputeLevelSetKernel(BOOL* flag, REAL3* gridPosition, REAL3* pa
 		//float radius = 1.5f * density / 400.0f;
 		float radius = 1.5f * density / 180.0f;
 		float h = 4.0f * radius;
-		float3 avgPos = make_float3(0.0f, 0.0f, 0.0f);
-		int key = (res.x * res.x) * gridIndex.z + res.x * gridIndex.y + gridIndex.x;
+		REAL3 avgPos = make_REAL3(0.0f, 0.0f, 0.0f);
+		int key = (res.x * res.y) * gridIndex.z + res.x * gridIndex.y + gridIndex.x;
 
+		int cnt = 0;
 		int width = 2;
 		FOR_NEIGHBOR(width) {
 			int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-			uint neighHash = calcGridHash(neighborPos, res.x);
+			uint neighHash = calcGridHash(neighborPos, hashRes);
 			uint startIdx = cellStart[neighHash];
 
 			if (startIdx != 0xffffffff)
@@ -648,56 +645,65 @@ __global__ void ComputeLevelSetKernel(BOOL* flag, REAL3* gridPosition, REAL3* pa
 				for (uint i = startIdx; i < endIdx; i++)
 				{
 					uint sortedIdx = gridIdx[i];
-					float3 pos2 = particles[sortedIdx];
+					REAL3 pos2 = particles[sortedIdx];
 					uint type2 = d_TotalType[sortedIdx];
-					float3 relPos = pos - pos2;
-					if (Length(relPos) > cellSize * width * 1.5)
+					REAL3 relPos = pos - pos2;
+					if (Length(relPos) > width * cellSize)
 						continue;
-					if (gridIndex.x == 15 && gridIndex.y == 1 && gridIndex.z == 15)
-						flag[sortedIdx] = true;
-					//if (type2 == WALL) {
-					//	float dist = hypotLength(relPos);
-					//	if (dist < density / res.x) {
-					//		sdf = 4.5f * density / res.x;
-					//		if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
-					//			sdf = fmaxf(sdf, 0.01f);
-					//		}
-					//		levelSet[key] = -sdf;
-					//		gridPosition[key] = make_REAL3(gridIndex.x, gridIndex.y, gridIndex.z) * cellSize;
-					//		return;
-					//	}
-					//	continue;
-					//}
+					if (type2 == WALL) {
+						float dist = hypotLength(relPos);
+						if (dist < density / res.x) {
+							sdf = 4.5f * density / res.x;
+							if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
+								sdf = fmaxf(sdf, 0.01f);
+							}
+							levelSet[key] = -sdf;
+							gridPosition[key] = make_REAL3(gridIndex.x, gridIndex.y, gridIndex.z) * cellSize;
+							return;
+						}
+						continue;
+					}
 					float lengthSquared = (relPos.x * relPos.x + relPos.y * relPos.y + relPos.z * relPos.z);
 					float w = fmax(1.0f - lengthSquared / (h * h), 0.0f);
-					r += w * radius;
-					avgPos += pos2 * w;
+					r += radius * w;
+					avgPos += pos2 *w ;
 					wsum += (double)w;
+					cnt++;
 				}
+			}
+		}END_FOR;
 
-			}END_FOR;
-			
-			if (wsum <= DBL_EPSILON && wsum >= -DBL_EPSILON) {
-				sdf = 1.0f;
-			}
-			else{
-				r /= wsum;
-				avgPos /= wsum;
-				sdf = fabs(Length(avgPos - pos)) - r;
-			}
-			if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
-				sdf = fmaxf(sdf, 0.01f);
-			}
-			levelSet[key] = -sdf;
-			gridPosition[key] = make_REAL3(gridIndex.x, gridIndex.y, gridIndex.z) * cellSize;
-			 //Sphere equation
-			//levelSet[key] = -(pow(pos.x - 0.5, 2.0) + pow(pos.y - 0.5, 2.0) + pow(pos.z - 0.5, 2.0) - 0.2 * 0.2);
+		//printf("wsum %f avgPos: %f %f %f Pos: %f %f %f Radius%f\n", wsum, avgPos.x, avgPos.y, avgPos.z, pos.x, pos.y, pos.z, r);
+		//printf("wsum: %f\n", wsum);
+		//printf("avgPos: %f %f %f\n", avgPos.x, avgPos.y, avgPos.z);
+		//printf("Pos: %f %f %f \n", pos.x, pos.y, pos.z);
+		//printf("Radius %f cnt %d\n", r/(float)cnt, cnt);
+
+		if (wsum) {
+			r /= wsum;
+			avgPos /= wsum;
+			sdf = fabs(Length(avgPos - pos)) - r;
 		}
+		else {
+			sdf = 1.0f;
+		}
+
+		if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
+			sdf = fmaxf(sdf, 0.01f);
+		}
+		levelSet[key] = -sdf;
+
+		REAL x = (float)gridIndex.x / (float)res.x;
+		REAL y = (float)gridIndex.y / (float)res.y;
+		REAL z = (float)gridIndex.z / (float)res.z;
+		gridPosition[key] = make_REAL3(x, y, z);
+
+		//// Sphere equation
+		//levelSet[key] = -(pow(pos.x - 0.5, 2.0) + pow(pos.y - 0.5, 2.0) + pow(pos.z - 0.5, 2.0) - 0.2 * 0.2);
 	}
 }
 
-
-void ComputeLevelset_kernel(BOOL* flag, REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res)
+void ComputeLevelset_kernel(REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res, uint hashRes)
 {
 	REAL3 pos0 = make_float3(0.0f, 0.0f, 0.0f);
 	REAL3 length = make_float3(1.0f, 1.0f, 1.0f);
@@ -706,7 +712,7 @@ void ComputeLevelset_kernel(BOOL* flag, REAL3* gridPosition, REAL3* particles, u
 	int threads = 256;
 	dim3 grid((numCells + threads - 1) / threads, 1, 1);
 
-	ComputeLevelSetKernel << <grid, threads >> > (flag, gridPosition, particles, d_TotalType, levelSet, d_GridIdx, d_CellStart, d_CellEnd, _numTotalParticles, res, pos0, length);
+	ComputeLevelSetKernel << <grid, threads >> > (gridPosition, particles, d_TotalType, levelSet, d_GridIdx, d_CellStart, d_CellEnd, _numTotalParticles, res, hashRes, pos0, length);
 	cudaThreadSynchronize();
 }
 
