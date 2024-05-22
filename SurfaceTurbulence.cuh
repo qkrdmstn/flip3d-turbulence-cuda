@@ -966,7 +966,7 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 	if (idx >= numFineParticles)
 		return;
 	
-	REAL source = 2.0 * SmoothStep(waveParam._waveSeedingCurvatureThresholdMinimum, waveParam._waveSeedingCurvatureThresholdMaximum, curvature[idx]) - 1.0; //edge값 추후 수정 가능
+	REAL source = 2.0 * SmoothStep(waveParam._waveSeedingCurvatureThresholdCenter - waveParam._waveSeedingCurvatureThresholdRadius, waveParam._waveSeedingCurvatureThresholdCenter + waveParam._waveSeedingCurvatureThresholdRadius, curvature[idx]) - 1.0; //edge값 추후 수정 가능
 	REAL freq = waveParam._waveSeedFreq;
 	REAL theta = waveParam._dt * (REAL)step * waveParam._waveSpeed * freq;
 	REAL cosTheta = cos(theta);
@@ -1119,12 +1119,12 @@ __global__ void EvolveWave_D(REAL* waveDtH, REAL* waveH, REAL* laplacian, REAL* 
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
-	REAL damping = 1.0f;
+	
 	waveDtH[idx] += waveParam._waveSpeed * waveParam._waveSpeed * waveParam._dt * laplacian[idx];
-	waveDtH[idx] /= (1.0 + waveParam._dt * damping);
+	waveDtH[idx] /= (1.0 + waveParam._dt * waveParam._waveDamping);
 
 	waveH[idx] += waveParam._dt * waveDtH[idx];
-	waveH[idx] /= (1.0 + waveParam._dt * damping);
+	waveH[idx] /= (1.0 + waveParam._dt * waveParam._waveDamping);
 	waveH[idx] -= seed[idx];
 
 	//clamp

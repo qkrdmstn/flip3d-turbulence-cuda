@@ -199,7 +199,7 @@ __global__ void CollisionMovingBox_D(OBB* boxes, REAL3* _pos, REAL3* _vel, uint*
 
 	for (int i = 0; i < numBoxes; i++) {
 
-		for (int j = 0; j < 10; j++) {
+		for (int j = 0; j < 20; j++) {
 			REAL3 box_vel = boxes[i]._center - boxes[i]._center0;
 
 			REAL3 pos = _pos[idx];

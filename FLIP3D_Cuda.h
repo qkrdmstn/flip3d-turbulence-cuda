@@ -111,6 +111,7 @@ public:
 
 public:
 	vector<Object> objects;
+	uint _numBoxes;
 
 public:
 	FLIP3D_Cuda();

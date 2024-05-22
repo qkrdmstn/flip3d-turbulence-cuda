@@ -7,21 +7,21 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
-float _rot_x = 14.2f; // x축 회전
-float _rot_y = -24.00f; // y축 회전
+float _rot_x = 53.0f; // x축 회전
+float _rot_y = -48.20f; // y축 회전
 float _trans_x = 0.02f; // x축 이동
 float _trans_y = 0.14f; // y축 이동
 int _last_x = 0; // 이전 마우스 클릭 x위치
-int _last_y = 0; // 이전 마우스 클릭 y위치
+int _last_y = -0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
-bool _fluidFlag = true;
-bool _turbulenceFlag = true;
+bool _fluidFlag = false;
+bool _turbulenceFlag = false;
 bool _surfaceReconstructionFlag = true;
 
 int frame = 0, curTime, timebase = 0;
@@ -73,7 +73,7 @@ void Update(void)
 	if (_simulation) {
 #if SCREEN_CAPTURE
 		if (_frame <= 1000) {
-			string path = "image\\128\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\final\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
@@ -208,6 +208,10 @@ void Keyboard(unsigned char key, int x, int y)
 		break;
 	case ' ':
 		_simulation = !_simulation;
+		if (!_simulation)
+			printf("Simulation Pause\n");
+		else
+			printf("Simulation Start\n");
 		break;
 	default:
 		break;

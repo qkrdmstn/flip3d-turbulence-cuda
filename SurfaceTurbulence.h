@@ -14,14 +14,15 @@ __host__ __device__
 struct WaveParam
 {
 	//Wave Simulation Coefficient
-	REAL _dt = 0.00125;
-	REAL _waveSpeed = 4.0;
-	REAL _waveSeedFreq = 2.0;
+	REAL _dt = 0.005;
+	REAL _waveSpeed = 8.0;
+	REAL _waveDamping = 0.0f;
+	REAL _waveSeedFreq = 4.0;
 	REAL _waveMaxAmplitude ;
 	REAL _waveMaxFreq = 400.0;
 	REAL _waveMaxSeedingAmplitude = 0.025;
-	REAL _waveSeedingCurvatureThresholdMinimum;
-	REAL _waveSeedingCurvatureThresholdMaximum;
+	REAL _waveSeedingCurvatureThresholdCenter;
+	REAL _waveSeedingCurvatureThresholdRadius;
 	REAL _waveSeedStepSizeRatioOfMax = 0.025;
 };
 

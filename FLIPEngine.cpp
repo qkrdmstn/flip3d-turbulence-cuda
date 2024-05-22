@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 128
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -88,7 +88,7 @@ void FLIPEngine::draw(bool flag1, bool flag2, bool flag3)
 		_MC->renderSurface();
 #endif
 	_fluid->drawOBB();
-	drawBoundary();
+	//drawBoundary();
 }
 
 void	FLIPEngine::drawBoundary()

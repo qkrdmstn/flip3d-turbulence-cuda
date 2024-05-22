@@ -171,19 +171,19 @@ void FLIP3D_Cuda::WaterDropTest()
 {
 	Object obj;
 
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = _wallThick;	obj.p[1].y = 0.2;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-	//objects.push_back(obj);
+	obj.type = FLUID;
+	obj.shape = BOX;
+	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
+	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+	objects.push_back(obj);
 
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.6;
+	obj.c.y = 0.3;
 	obj.c.z = 0.5;
-	obj.r = 0.12;
+	obj.r = 0.08;
 	objects.push_back(obj);
 
 }
@@ -261,25 +261,27 @@ void FLIP3D_Cuda::DamBreakTest()
 void FLIP3D_Cuda::MovingBoxesTest(void)
 {
 	OBB box;
-	box._center = make_REAL3(0.1, 0.12, 0.5);
+	box._center = make_REAL3(0.2, 0.06, 0.5);
 	box._center0 = box._center;
-	box._radius = make_REAL3(0.06, 0.12, 0.03);
+	box._radius = make_REAL3(0.12, 0.12, 0.06);
 	computeCorners(box);
 	h_Boxes.push_back(box);
 
-	box._center = make_REAL3(0.7, 0.12, 0.5);
-	box._center0 = box._center;
-	box._radius = make_REAL3(0.06, 0.12, 0.03);
-	computeCorners(box);
-	h_Boxes.push_back(box);
+	//box._center = make_REAL3(0.7, 0.12, 0.5);
+	//box._center0 = box._center;
+	//box._radius = make_REAL3(0.06, 0.12, 0.03);
+	//computeCorners(box);
+	//h_Boxes.push_back(box);
 
 	Object obj;
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.02;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
+
+	_numBoxes = h_Boxes.size();
 }
 
 void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
@@ -397,12 +399,11 @@ void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 {
 	d_Boxes.copyToHost(h_Boxes);
 	RotateMovingBox_kernel(h_Boxes[0], true);
-	RotateMovingBox_kernel(h_Boxes[1], false);
+	//RotateMovingBox_kernel(h_Boxes[1], false);
 	d_Boxes.copyFromHost(h_Boxes);
 
-	uint numBoxes = h_Boxes.size();
 	CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, numBoxes, dt);
+		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
 }
 
 void FLIP3D_Cuda::SolvePICFLIP()
