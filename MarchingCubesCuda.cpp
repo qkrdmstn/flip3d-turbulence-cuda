@@ -438,8 +438,8 @@ void MarchingCubes_CUDA::renderSurface(void)
 
 	//	//if (isnan(level))
 	//	//	continue;
-	//	//if (fabs(level) > 0.8501f)
-	//	//	continue;
+	//	if (fabs(level) > 0.8501f)
+	//		continue;
 	//	REAL3 color = ScalarToColor(fabs(level));
 	//	glColor3f(color.x, color.y, color.z);
 
