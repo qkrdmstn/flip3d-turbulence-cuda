@@ -389,7 +389,7 @@ __global__ void SurfaceConstraint_D(REAL3* finePos, REAL3* coarsePos, uint* grid
 
 
 //Normal Compute
-__device__ REAL NeighborFineWeight(REAL r, REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, uint fineIdx1, uint fineIdx2, uint fineRes)
+__device__ REAL NeighborFineWeight(REAL r, REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, uint fineIdx1, uint fineIdx2)
 {
 	REAL3 fPos1 = finePos[fineIdx1];
 	REAL3 fPos2 = finePos[fineIdx2];
@@ -481,7 +481,7 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, u
 				REAL x = Dot((pos2 - pos1), t1);
 				REAL y = Dot((pos2 - pos1), t2);
 				REAL z = Dot((pos2 - pos1), n);
-				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				swx2 += w * x * x;
 				swy2 += w * y * y;
 				swxy += w * x * y;
@@ -548,7 +548,7 @@ __global__ void SmoothNormal_D(REAL3* finePos, REAL* fineKernelDens, REAL* fineW
 			for (uint i = startIdx; i < endIdx; i++)
 			{
 				uint sortedIdx = fineGridIdx[i];
-				newNormal += surfaceTempNormal[sortedIdx] * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				newNormal += surfaceTempNormal[sortedIdx] * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 			}
 		}
 	}END_FOR;
@@ -617,7 +617,7 @@ __global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3
 				if (Dot(projectedNormal, normal) < 0.0 || abs(Dot(normal, (normal + projectedNormal)) < 1e-6)) continue;
 				dn = -1 * normal * (Dot((normal + projectedNormal), dir) / (2 * Dot(normal, (normal + projectedNormal))));
 
-				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				displacement += dn * w;
 			}
 		}
@@ -626,13 +626,13 @@ __global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3
 	fineTempPos[idx] += displacement;
 }
 
-__global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles)
+__global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3 * (1.0 / fineRes);
+	REAL r = 3 * fineScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
@@ -660,12 +660,12 @@ __global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL
 				REAL3 dt = dir - dn; //dir의 tangent 방향 성분
 				Normalize(dt);
 
-				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				displacement += dt * w;
 			}
 		}
 	}END_FOR;
-	displacement *= 0.5 * (1.0 / fineRes);
+	displacement *= 0.5 * fineScaleLen;
 	fineTempPos[idx] += displacement;
 
 }
@@ -687,7 +687,7 @@ __device__ BOOL IsInDomain(REAL3 pos)
 		return false;
 }
 
-__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, uint numCoarseParticles,
+__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles,
 	REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -699,8 +699,8 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	secondParticleGridIdx[insertIdx] = numCoarseParticles * PER_PARTICLE;
 
 	//tam
-	REAL tangentRadius = 3.0 * (1.0 / fineRes);
-	REAL insertRadius = 2.0 * (1.0 / fineRes);
+	REAL tangentRadius = 3.0 * fineScaleLen;
+	REAL insertRadius = 2.0 * fineScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
@@ -728,7 +728,7 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 				REAL3 dt = dir - dn; //dir의 tangent 방향 성분
 				Normalize(dt);
 
-				REAL w = NeighborFineWeight(tangentRadius, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				REAL w = NeighborFineWeight(tangentRadius, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				displacementTangent += dt * w;
 			}
 		}
@@ -774,7 +774,7 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	}
 }
 
-__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
+__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -782,7 +782,7 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	secondParticleGridIdx[idx] = idx;
 
-	REAL deleteRadius = (1.0 / 4.0) * (1.0 / fineRes);
+	REAL deleteRadius = (1.0 / 4.0) * (fineScaleLen);
 	REAL3 pos = finePos[idx];
 
 	int3 gridPos1 = calcGridPos(pos, 1.0 / fineRes);
@@ -913,7 +913,7 @@ __global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* s
 			{
 				uint sortedIdx = fineGridIdx[i];
 				REAL3 pos2 = finePos[sortedIdx];
-				curvature += Dot(normal, (pos - pos2)) * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				curvature += Dot(normal, (pos - pos2)) * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 			}
 		}
 	}END_FOR;
@@ -945,7 +945,7 @@ __global__ void SmoothCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL* cur
 			for (uint i = startIdx; i < endIdx; i++)
 			{
 				uint sortedIdx = fineGridIdx[i];
-				newCurvature += tempCurvature[sortedIdx] * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				newCurvature += tempCurvature[sortedIdx] * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 			}
 		}
 	}END_FOR;
@@ -982,13 +982,13 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 	waveH[idx] += seed[idx];
 }
 
-__global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, uint numCoarseParticles)
+__global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3.0 * (1.0 / fineRes);
+	REAL r = 3.0 * fineScaleLen;
 	REAL3 pos = finePos[idx];
 	REAL3 n = surfaceNormal[idx];
 	REAL3 vx = make_REAL3(1, 0, 0);
@@ -1020,7 +1020,7 @@ __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNorm
 				REAL x = Dot((pos2 - pos1), t1);
 				REAL y = Dot((pos2 - pos1), t2);
 				REAL z = waveH[sortedIdx];
-				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+				REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				swx2 += w * x * x;
 				swy2 += w * y * y;
 				swxy += w * x * y;
@@ -1051,13 +1051,13 @@ __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNorm
 	}
 }
 
-__global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveNormal, REAL* waveH, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles)
+__global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveNormal, REAL* waveH, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL finScaleLen, uint numFineParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3.0 * (1.0 / fineRes);
+	REAL r = 3.0 * finScaleLen;
 	REAL3 pos1 = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
 
@@ -1104,7 +1104,7 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 					REAL dirX = Dot(tangentDir, t1);
 					REAL dirY = Dot(tangentDir, t2);
 					REAL dz = nh - ph - (-waveN.x / waveN.z) * dirX - (-waveN.y / waveN.z) * dirY;
-					REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx, fineRes);
+					REAL w = NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 					l += fmax(-100.0f, fmin(w * 4.0f * dz / (lengthDir * lengthDir), 100.0f));
 				}
 			}
