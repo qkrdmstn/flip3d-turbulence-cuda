@@ -658,7 +658,11 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 								sdf = fmaxf(sdf, 0.01f);
 							}
 							levelSet[key] = -sdf;
-							gridPosition[key] = make_REAL3(gridIndex.x, gridIndex.y, gridIndex.z) * cellSize;
+
+							REAL x = (float)gridIndex.x / (float)res.x;
+							REAL y = (float)gridIndex.y / (float)res.y;
+							REAL z = (float)gridIndex.z / (float)res.z;
+							gridPosition[key] = make_REAL3(x, y, z);
 							return;
 						}
 						continue;

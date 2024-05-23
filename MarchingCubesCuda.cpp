@@ -351,7 +351,7 @@ void MarchingCubes_CUDA::Smoothing(void)
 void MarchingCubes_CUDA::MarchingCubes()
 {
 	_numTotalParticles = _fluid->_numParticles + _turbulence->_numFineParticles;
-	printf("MC INit %d\n", _numTotalParticles);
+	printf("Num of MC Particles %d\n", _numTotalParticles);
 	
 	unsigned int memSize = sizeof(REAL3) * _numTotalParticles;
 	cudaMalloc(&d_TotalParticles, memSize);

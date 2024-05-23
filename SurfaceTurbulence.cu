@@ -10,8 +10,17 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 
 	_coarseScaleLen = 1.0 / gridRes;
 	_baseRes = gridRes;
+
 	_fineScaleLen = PI * (_coarseScaleLen + (_coarseScaleLen / 2.0)) / SURFACE_DENSITY;
-	_hashGridRes = _baseRes * 4;
+	_hashGridRes = _baseRes * 6;
+	//int res = 1.0 / _fineScaleLen;
+	//int i = 0;
+	//for (i = 0; i < 10; i++)
+	//{
+	//	if ((int)(res / pow(2, i)) == 0)
+	//		break;
+	//}
+	//_hashGridRes = (int)pow(2, i);
 
 	_outerRadius = _coarseScaleLen; //_coarseScaleLen;
 	_innerRadius = _outerRadius / 2.0;  //_outerRadius / 2;
@@ -54,11 +63,11 @@ void SurfaceTurbulence::InitWaveParam(void)
 	waveParam._waveDamping = 0.0f;
 	waveParam._waveSeedFreq = _coarseScaleLen * 4.0;
 	waveParam._waveMaxAmplitude = _coarseScaleLen * 0.25;
-	waveParam._waveMaxFreq = _coarseScaleLen * 800.0;
+	waveParam._waveMaxFreq = 800.0;
 	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
 	waveParam._waveSeedingCurvatureThresholdCenter = _coarseScaleLen * 0.025; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = _coarseScaleLen * 0.01;
-	waveParam._waveSeedStepSizeRatioOfMax = _coarseScaleLen * 0.05f; // higher values will result in faster and more violent wave seeding
+	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)

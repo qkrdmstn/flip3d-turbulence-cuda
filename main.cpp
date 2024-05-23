@@ -21,7 +21,8 @@ unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = false;
 
 bool _fluidFlag = false;
-bool _turbulenceFlag = false;
+bool _turbulenceDisplayFlag = false;
+bool _turbulenceBaseFlag = false;
 bool _surfaceReconstructionFlag = true;
 
 int frame = 0, curTime, timebase = 0;
@@ -138,7 +139,7 @@ void Draw(void)
 	glEnable(GL_LIGHTING); // 조명 활성화
 	glEnable(GL_LIGHT0); // 첫번째 조명
 
-	_engine->draw(_fluidFlag, _turbulenceFlag, _surfaceReconstructionFlag);
+	_engine->draw(_fluidFlag, _turbulenceBaseFlag, _turbulenceDisplayFlag, _surfaceReconstructionFlag);
 	glDisable(GL_LIGHTING);
 
 	char text[100];
@@ -193,13 +194,20 @@ void Keyboard(unsigned char key, int x, int y)
 			printf("FLIP render Off\n");
 		break;
 	case '2':
-		_turbulenceFlag = !_turbulenceFlag;
-		if (_turbulenceFlag)
-			printf("Turbulence render On\n");
+		_turbulenceBaseFlag = !_turbulenceBaseFlag;
+		if (_turbulenceBaseFlag)
+			printf("Turbulence Base render On\n");
 		else
-			printf("Turbulence render Off\n");
+			printf("Turbulence Base render Off\n");
 		break;
 	case '3':
+		_turbulenceDisplayFlag = !_turbulenceDisplayFlag;
+		if (_turbulenceDisplayFlag)
+			printf("Turbulence Display render On\n");
+		else
+			printf("Turbulence Display render Off\n");
+		break;
+	case '4':
 		_surfaceReconstructionFlag = !_surfaceReconstructionFlag;
 		if (_surfaceReconstructionFlag)
 			printf("MarchingCube render On\n");

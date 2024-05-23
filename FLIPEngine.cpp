@@ -51,7 +51,7 @@ void	FLIPEngine::simulation(void)
 				printf("%.4f%\n", (float)(i + 1) / 4);
 		}
 	}
-	printf("-------------- fineParticles %d --------------\n", _turbulence->_numFineParticles);
+	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
 	_turbulence->WaveSimulation_kernel(_frame);
 #endif
 
@@ -73,18 +73,20 @@ void	FLIPEngine::reset(void)
 
 }
 
-void FLIPEngine::draw(bool flag1, bool flag2, bool flag3)
+void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
 {
 	if (flag1)
 		_fluid->draw();
 
 #if TURBULENCE
 	if (flag2)
+		_turbulence->drawFineParticles();
+	if (flag3)
 		_turbulence->drawDisplayParticles();
 #endif
 
 #if SURFACERECONSTRUCTION
-	if (flag3)
+	if (flag4)
 		_MC->renderSurface();
 #endif
 	_fluid->drawOBB();
