@@ -11,6 +11,7 @@ struct OBB
 	REAL3 _center0;
 	REAL3 _radius;
 	REAL3 _corners[8];
+	BOOL flag;
 };
 
 static int OBB_NODE_QUAD_TABLE[6][4] =
@@ -284,6 +285,47 @@ static void  __inline__ __host__  RotateMovingBox_kernel(OBB& box, bool type)
 			box._axis[i][j] = num;
 		}
 	}
+	computeCorners(box);
+}
+
+static void  __inline__ __host__  LinearMovingBox_kernel(OBB& box)
+{
+	box._center0 = box._center;
+	if (box._center.x < 0.0)
+		box.flag = true;
+	else if (box._center.x > 0.1)
+		box.flag = false;
+
+	REAL dt = 0.6e-2;
+	REAL3 vel = make_REAL3(0.5, 0.0, 0.0) * dt;
+	if (!box.flag)
+		vel *= -1;
+	REAL translate[4][4];
+
+	// initialize matrix
+	SetIdentity(translate);
+
+	// compute translate matrix
+	translate[0][3] = vel.x; translate[1][3] = vel.y; translate[2][3] = vel.z;
+
+	double undeformed_position[4], deformed_position[4];
+
+	undeformed_position[0] = box._center.x;
+	undeformed_position[1] = box._center.y;
+	undeformed_position[2] = box._center.z;
+	undeformed_position[3] = 1.0;
+
+	// transformation matrix
+	for (int j = 0; j < 4; j++) {
+		deformed_position[j] = 0.0;
+		for (int k = 0; k < 4; k++) {
+			deformed_position[j] += translate[j][k] * undeformed_position[k];
+		}
+	}
+
+	// update position
+	box._center = make_REAL3(deformed_position[0], deformed_position[1], deformed_position[2]);
+
 	computeCorners(box);
 }
 #endif

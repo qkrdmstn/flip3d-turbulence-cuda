@@ -129,7 +129,8 @@ public:		//Initialize
 	void PlaceWalls(void);
 	void WaterDropTest(void);
 	void DamBreakTest(void);
-	void MovingBoxesTest(void);
+	void RotateBoxesTest(void);
+	void MoveBoxTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
 	void ComputeWallParticleNormal_kernel(void);
 
