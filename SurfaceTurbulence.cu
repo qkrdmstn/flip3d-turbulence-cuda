@@ -11,11 +11,8 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	_coarseScaleLen = 1.0 / gridRes;
 	_baseRes = gridRes;
 
-	_outerRadius = _coarseScaleLen; //_coarseScaleLen;
-	_innerRadius = _outerRadius / 2.0;  //_outerRadius / 2;
-
-	_fineScaleLen = PI * (_outerRadius + _innerRadius) / SURFACE_DENSITY;
-	_hashGridRes = _baseRes * 8;
+	_fineScaleLen = PI * (_coarseScaleLen + (_coarseScaleLen / 2.0)) / SURFACE_DENSITY;
+	_hashGridRes = _baseRes ;
 	//int res = 1.0 / _fineScaleLen;
 	//int i = 0;
 	//for (i = 0; i < 10; i++)
@@ -24,6 +21,9 @@ SurfaceTurbulence::SurfaceTurbulence(FLIP3D_Cuda* fluid, uint gridRes) {
 	//		break;
 	//}
 	//_hashGridRes = (int)pow(2, i);
+
+	_outerRadius = _coarseScaleLen; //_coarseScaleLen;
+	_innerRadius = _outerRadius / 2.0;  //_outerRadius / 2;
 
 	InitHostMem();
 	InitDeviceMem();
@@ -61,7 +61,7 @@ void SurfaceTurbulence::InitWaveParam(void)
 	waveParam._dt = 0.005f;
 	waveParam._waveSpeed = _coarseScaleLen * 16.0;
 	waveParam._waveDamping = 0.0f;
-	waveParam._waveSeedFreq =  4.0;
+	waveParam._waveSeedFreq = _coarseScaleLen * 4.0;
 	waveParam._waveMaxAmplitude = _coarseScaleLen * 0.25;
 	waveParam._waveMaxFreq = 800.0;
 	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude

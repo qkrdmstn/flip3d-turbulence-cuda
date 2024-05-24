@@ -13,11 +13,9 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_fluid = new FLIP3D_Cuda(RES);
 	_turbulence = new SurfaceTurbulence(_fluid, RES);
 	_fluid->CopyToHost();
-
-#if SURFACERECONSTRUCTION
 	_MC = new MarchingCubes_CUDA();
+	//MC
 	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
-#endif
 }
 
 void	FLIPEngine::simulation(void)
@@ -53,13 +51,13 @@ void	FLIPEngine::simulation(void)
 				printf("%.4f%\n", (float)(i + 1) / 4);
 		}
 	}
-	//printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
-	//_turbulence->WaveSimulation_kernel(_frame);
+	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
+	_turbulence->WaveSimulation_kernel(_frame);
 #endif
 
-#if SURFACERECONSTRUCTION
+	//MC
 	_MC->MarchingCubes();
-#endif
+
 	_fluid->CopyToHost();
 
 #if TURBULENCE

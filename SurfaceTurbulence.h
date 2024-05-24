@@ -26,7 +26,7 @@ struct WaveParam
 	REAL _waveSeedStepSizeRatioOfMax = 0.025;
 };
 
-#define SURFACE_DENSITY 50.0
+#define SURFACE_DENSITY 20.0
 #define PER_PARTICLE 140
 
 class SurfaceTurbulence
