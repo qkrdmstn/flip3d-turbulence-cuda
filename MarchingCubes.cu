@@ -569,7 +569,7 @@ void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbul
 		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
 
 	CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
+		(d_TotalParticles, d_Type, _turbulence->d_Pos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 }
 
 void CalculateHash_kernel(uint* d_GridHash, uint* d_GridIdx, REAL3* d_TotalParticles, uint res, uint _numTotalParticles)

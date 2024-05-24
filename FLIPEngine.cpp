@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 128
+#define RES 64
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -18,14 +18,12 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 
 #if SURFACERECONSTRUCTION
 	_MC = new MarchingCubes_CUDA();
-	//MC
 	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
 #endif
 }
 
 void	FLIPEngine::simulation(void)
 {
-
 	printf("-------------- Step %d --------------\n", _frame);
 	_fluid->SetHashTable_kernel();
 	_fluid->ComputeParticleDensity_kernel();
@@ -56,8 +54,8 @@ void	FLIPEngine::simulation(void)
 				printf("%.4f%\n", (float)(i + 1) / 8);
 		}
 	}
-	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
-	_turbulence->WaveSimulation_kernel(_frame);
+	//printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
+	//_turbulence->WaveSimulation_kernel(_frame);
 #endif
 
 #if SURFACERECONSTRUCTION
@@ -134,7 +132,6 @@ void	FLIPEngine::drawBoundary()
 	glVertex3d(1.0f, 0.0f, 1.0f);
 	glVertex3d(0.0f, 0.0f, 1.0f);
 	glEnd();
-
 
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);

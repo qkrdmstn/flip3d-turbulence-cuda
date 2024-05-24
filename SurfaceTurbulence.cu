@@ -32,15 +32,14 @@ SurfaceTurbulence:: ~SurfaceTurbulence()
 
 void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 {
-	
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.1 ; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 2;
-	maintenanceParam._fineScaleLen = PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / SURFACE_DENSITY;
+	maintenanceParam._fineScaleLen = PI * (maintenanceParam._coarseScaleLen + (maintenanceParam._coarseScaleLen / 2.0)) / SURFACE_DENSITY;
 	//int res = 1.0 / _fineScaleLen;
 	//int i = 0;
 	//for (i = 0; i < 10; i++)
@@ -182,10 +181,10 @@ void SurfaceTurbulence::Regularization_kernel(void)
 		(d_Pos(), d_TempPos(), _numFineParticles);
 
 	NormalRegularization_kernel();
-	TangentRegularization_kernel();
+	//TangentRegularization_kernel();
 
-	CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Pos(), d_TempPos(), _numFineParticles);
+	//CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(d_Pos(), d_TempPos(), _numFineParticles);
 }
 
 void SurfaceTurbulence::InsertFineParticles(void)
@@ -301,9 +300,9 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 	SetHashTable_kernel();
 	Regularization_kernel();
 
-	SetHashTable_kernel();
-	InsertFineParticles();
-	DeleteFineParticles();
+	//SetHashTable_kernel();
+	//InsertFineParticles();
+	//DeleteFineParticles();
 }
 
 void  SurfaceTurbulence::ComputeCurvature_kernel(void)
@@ -582,13 +581,13 @@ void SurfaceTurbulence::drawFineParticles(void)
 		REAL waveH = h_WaveH[i];
 		BOOL flag = h_Flag[i];
 
-		//////Draw normal
-		//glColor3f(1.0f, 1.0f, 1.0f);
-		//double scale = 0.02;
-		//glBegin(GL_LINES);
-		//glVertex3d(position.x, position.y, position.z);
-		//glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
-		//glEnd();
+		////Draw normal
+		glColor3f(1.0f, 1.0f, 1.0f);
+		double scale = 0.02;
+		glBegin(GL_LINES);
+		glVertex3d(position.x, position.y, position.z);
+		glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
+		glEnd();
 
 		//////Draw waveNormal
 		//glColor3f(1.0f, 1.0f, 1.0f);

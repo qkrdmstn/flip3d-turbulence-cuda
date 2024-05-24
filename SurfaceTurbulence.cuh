@@ -24,9 +24,9 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 	if (coarseType[idx] != FLUID)
 		return;
 
-	uint discretization = (uint)PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / maintenanceParam._fineScaleLen;
-	REAL dtheta = 2.0 * maintenanceParam._fineScaleLen / (maintenanceParam._outerRadius + maintenanceParam._innerRadius);
-	REAL outerRadius2 = maintenanceParam._outerRadius * maintenanceParam._outerRadius;
+	uint discretization = (uint)PI * (maintenanceParam._coarseScaleLen + (maintenanceParam._coarseScaleLen / 2.0)) / maintenanceParam._fineScaleLen;
+	REAL dtheta = 2.0 * maintenanceParam._fineScaleLen / (maintenanceParam._coarseScaleLen + (maintenanceParam._coarseScaleLen / 2.0));
+	REAL outerRadius2 = maintenanceParam._coarseScaleLen * maintenanceParam._coarseScaleLen;
 
 	BOOL nearSurface = false;
 	REAL3 pos = coarsePos[idx];
@@ -58,11 +58,13 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 			for (REAL phi = 0; phi < 2.0 * PI; phi += REAL(2.0 * PI / discretization2)) {
 				REAL theta = i * dtheta;
 				REAL3 normal = make_REAL3(sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi));
-				REAL3 position = pos + normal * maintenanceParam._outerRadius;
+				REAL3 position = pos + normal * maintenanceParam._coarseScaleLen;
 
 				bool valid = true;
 				int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._coarseRes);
-				FOR_NEIGHBOR(2) {
+				REAL r = 2 * maintenanceParam._coarseScaleLen;
+				int width = (r * maintenanceParam._coarseRes) + 1;
+				FOR_NEIGHBOR(width) {
 					int3 neighGridPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 
 					uint neighHash = calcGridHash(neighGridPos, maintenanceParam._coarseRes);
@@ -191,6 +193,15 @@ __global__ void ComputeFineDens_D(REAL r, REAL3* finePos, REAL* fineKernelDens, 
 
 
 //Advection
+__device__ REAL weightKernelAdvection(REAL3 distance, MaintenanceParam param) {
+	if (Length(distance) > 2.f * param._coarseScaleLen) {
+		return 0;
+	}
+	else {
+		return DistKernel(distance, 2.f * param._coarseScaleLen);
+	}
+}
+
 __device__ REAL NeighborCoarseWeight(REAL r, REAL3* finePos, REAL3* coarsePos, uint* coarseType, REAL* coarseKernelDens, uint fineIdx, uint coarseIdx, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
 	REAL3 fPos = finePos[fineIdx];
@@ -244,6 +255,7 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
 	REAL3 displacement = make_REAL3(0, 0, 0);
+	REAL totalW = 0.0f;
 
 	int width = (r / cellSize) + 1;
 	FOR_NEIGHBOR(width) {
@@ -267,11 +279,15 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 					continue;
 
 				REAL3 beforePos = coarseBeforePos[sortedIdx];
-				displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
+				REAL w = weightKernelAdvection((beforePos - fPos), maintenanceParam);
+				displacement += w * (curPos - beforePos);
+				totalW += w;
+
+				//displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
 			}
 		}
 	}END_FOR;
-
+	if (totalW != 0) displacement /= totalW;
 	finePos[idx] += displacement;
 	flag[idx] = false;
 }
@@ -323,8 +339,8 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx,
 	if (f > 1.0f) f = 1.0f;
 
 	f = (sqrt(-log(f) / a) - r) / (R - r);
-	if (f > 2.0)
-		f = 2.0f;
+	//if (f > 2.0)
+	//	f = 2.0f;
 	return f;
 }
 
@@ -380,7 +396,9 @@ __global__ void SurfaceConstraint_D(REAL3* finePos, REAL3* coarsePos, uint* grid
 	REAL levelSet = MetaballLevelSet(fPos, coarsePos, gridIdx, cellStart, cellEnd, maintenanceParam);
 	if (levelSet <= 1.0 && levelSet >= 0.0) return;
 
-	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, gridIdx, cellStart, cellEnd, 2, maintenanceParam); // Constraints Projection
+	REAL radius = 2 * maintenanceParam._coarseScaleLen;
+	int width = (radius * maintenanceParam._coarseRes) + 1;
+	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, gridIdx, cellStart, cellEnd, width, maintenanceParam); // Constraints Projection
 	if (levelSet < 0.0) {
 		fPos -= gradient * (R - r) * levelSet;
 	}

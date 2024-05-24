@@ -10,6 +10,9 @@
 
 using namespace std;
 
+#define SURFACE_DENSITY 30.0
+#define PER_PARTICLE 140
+
 __host__ __device__
 struct WaveParam
 {
@@ -38,10 +41,6 @@ struct MaintenanceParam
 	uint _fineRes;
 	uint _coarseRes;
 };
-
-
-#define SURFACE_DENSITY 25.0
-#define PER_PARTICLE 140
 
 class SurfaceTurbulence
 {

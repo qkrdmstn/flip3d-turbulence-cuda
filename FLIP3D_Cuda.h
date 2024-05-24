@@ -52,6 +52,8 @@ public:		//Device
 
 	Dvector<BOOL> d_Flag;
 
+
+#if GRIDRENDER
 	//grid visualize
 	Dvector<REAL3> d_gridPos;
 	Dvector<REAL3> d_gridVel;
@@ -60,7 +62,7 @@ public:		//Device
 	Dvector<REAL> d_gridLevelSet;
 	Dvector<REAL> d_gridDiv;
 	Dvector<uint> d_gridContent;
-
+#endif
 	//OBB
 	Dvector<OBB> d_Boxes;
 
@@ -77,6 +79,8 @@ public:		//Host
 
 	vector<BOOL> h_Flag;
 
+
+#if GRIDRENDER
 	//grid visualize
 	vector<REAL3> h_gridPos;
 	vector<REAL3> h_gridVel;
@@ -85,7 +89,7 @@ public:		//Host
 	vector<REAL> h_gridLevelSet;
 	vector<REAL> h_gridDiv;
 	vector<uint> h_gridContent;
-
+#endif
 	//OBB
 	vector<OBB> h_Boxes;
 

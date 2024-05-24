@@ -464,6 +464,9 @@ __global__ void ComputeDivergence_D(VolumeCollection volumes, uint gridRes)
 
 		volumes.divergence.writeSurface<REAL>(div, x, y, z);
 	}
+	else
+		volumes.divergence.writeSurface<REAL>(0.0f, x, y, z);
+
 }
 
 __global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* type, REAL* dens, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL densVal, uint gridRes)
@@ -847,10 +850,8 @@ __global__ void ComputeVelocityWithPress_D(VolumeCollection volumes, uint gridRe
 
 	REAL cellSize = 1.0 / gridRes;
 	REAL levelSet = volumes.levelSet.readSurface<REAL>(x, y, z);
-	uint thisContent = volumes.content.readSurface<uint>(x, y, z);
 
 	REAL4 curVel = volumes.vel.readSurface<REAL4>(x, y, z);
-
 	if (x < gridRes && x>0) {
 		REAL press = volumes.press.readSurface<REAL>(x, y, z);
 		REAL pressX = volumes.press.readSurface<REAL>(x - 1, y, z);
@@ -937,6 +938,7 @@ __global__ void ExtrapolateVelocity_D(VolumeCollection volumes, uint gridRes)
 	uint z = blockIdx.z * blockDim.z + threadIdx.z;
 
 	if (x >= gridRes || y >= gridRes || z >= gridRes) return;
+
 
 	REAL4 newVel = volumes.vel.readSurface<REAL4>(x, y, z);
 	uint3 mark = Mark(volumes, x, y, z, gridRes);
@@ -1132,7 +1134,6 @@ __global__ void ConstraintOuterWall_D(REAL3* pos, REAL3* vel, REAL3* normal, uin
 	pos[idx].y = max(wallThick, min((REAL)(1.0 - wallThick), pos[idx].y));
 	pos[idx].z = max(wallThick, min((REAL)(1.0 - wallThick), pos[idx].z));
 
-#if 1
 	REAL cellSize = 1.0 / gridRes;
 	int3 gridPos = calcGridPos(pos[idx], cellSize);
 
@@ -1166,7 +1167,6 @@ __global__ void ConstraintOuterWall_D(REAL3* pos, REAL3* vel, REAL3* normal, uin
 		}
 
 	}END_FOR;
-#endif
 }
 
 __device__ REAL3 Resample(REAL3 curPos, REAL3 curVel, REAL3* pos, REAL3* vel, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, REAL re)
@@ -1263,7 +1263,6 @@ __global__ void Correct_D(REAL3* pos, REAL3* vel, REAL3* normal, REAL* mass, uin
 
 	pos[idx] = temp;
 	vel[idx] = temp2;
-
 }
 
 __global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* gridPos, REAL3* gridVel, REAL* gridPress, REAL* gridDens, REAL* gridLevelSet, REAL* gridDiv, uint* gridContent)

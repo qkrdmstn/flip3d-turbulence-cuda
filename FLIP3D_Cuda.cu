@@ -1,4 +1,5 @@
 #include "FLIP3D_Cuda.cuh"
+#define GRIDRENDER 0
 #define VEL 0
 #define PRESS 0
 #define LEVEL 0
@@ -26,14 +27,16 @@ void FLIP3D_Cuda::Init(void)
 	_numParticles = h_CurPos.size();
 	printf("Num FLIP particles: %d\n", _numParticles);
 
-	////For grid visualize
-	//h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
-	//h_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
-	//h_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
-	//h_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
-	//h_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
-	//h_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
-	//h_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+#if GRIDRENDER
+	//For grid visualize
+	h_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+	h_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+	h_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+	h_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+	h_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1)); 
+#endif
 
 	InitDeviceMem();
 	CopyToDevice();
@@ -93,7 +96,7 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	//WaterDropTest();
+	WaterDropTest();
 	//DamBreakTest();
 	//RotateBoxesTest();
 	MoveBoxTest();
@@ -175,16 +178,16 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.02;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.12;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.1;
+	obj.c.y = 0.6;
 	obj.c.z = 0.5;
-	obj.r = 0.05;
+	obj.r = 0.12;
 	objects.push_back(obj);
 
 }
@@ -195,9 +198,9 @@ void FLIP3D_Cuda::DamBreakTest()
 
 	obj.type = FLUID;
 	obj.shape = BOX;
-	obj.p[0].x = 0.2;	obj.p[1].x = 0.3;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
-	obj.p[0].z = 0.3;	obj.p[1].z = 0.7;
+	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.6;
+	obj.p[0].z = 0.3;	obj.p[1].z = 0.8;
 	objects.push_back(obj);
 
 	obj.type = FLUID;
@@ -910,15 +913,17 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	d_CellStart.resize(_gridRes * _gridRes * _gridRes);			d_CellStart.memset(0);
 	d_CellEnd.resize(_gridRes * _gridRes * _gridRes);			d_CellEnd.memset(0);
 
-	////Visualize
-	//d_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPos.memset(0);
-	//d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
-	//d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
-	//d_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDens.memset(0);
-	//d_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridLevelSet.memset(0);
-	//d_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDiv.memset(0);
-	//d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
-	//printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+#if GRIDRENDER
+	//Visualize
+	d_gridPos.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPos.memset(0);
+	d_gridVel.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridVel.memset(0);
+	d_gridPress.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridPress.memset(0);
+	d_gridDens.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDens.memset(0);
+	d_gridLevelSet.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridLevelSet.memset(0);
+	d_gridDiv.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridDiv.memset(0);
+	d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
+	printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
+#endif
 
 	//OBB
 	d_Boxes.resize(h_Boxes.size());	d_Boxes.memset(0);
@@ -943,15 +948,16 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	d_CellStart.free();
 	d_CellEnd.free();
 
-	////Visualize
-	//d_gridPos.free();
-	//d_gridVel.free();
-	//d_gridPress.free();
-	//d_gridDens.free();
-	//d_gridLevelSet.free();
-	//d_gridDiv.free();
-	//d_gridContent.free();
-
+#if GRIDRENDER
+	//Visualize
+	d_gridPos.free();
+	d_gridVel.free();
+	d_gridPress.free();
+	d_gridDens.free();
+	d_gridLevelSet.free();
+	d_gridDiv.free();
+	d_gridContent.free();
+#endif
 	//OBB
 	d_Boxes.free();
 }
@@ -969,15 +975,16 @@ void FLIP3D_Cuda::CopyToDevice(void)
 	d_KernelDens.copyFromHost(h_KernelDens);
 	d_Flag.copyFromHost(h_Flag);
 
-	////Visualize
-	//d_gridPos.copyFromHost(h_gridPos);
-	//d_gridVel.copyFromHost(h_gridVel);
-	//d_gridPress.copyFromHost(h_gridPress);
-	//d_gridDens.copyFromHost(h_gridDens);
-	//d_gridLevelSet.copyFromHost(h_gridLevelSet);
-	//d_gridDiv.copyFromHost(h_gridDiv);
-	//d_gridContent.copyFromHost(h_gridContent);
-
+#if GRIDRENDER
+	//Visualize
+	d_gridPos.copyFromHost(h_gridPos);
+	d_gridVel.copyFromHost(h_gridVel);
+	d_gridPress.copyFromHost(h_gridPress);
+	d_gridDens.copyFromHost(h_gridDens);
+	d_gridLevelSet.copyFromHost(h_gridLevelSet);
+	d_gridDiv.copyFromHost(h_gridDiv);
+	d_gridContent.copyFromHost(h_gridContent);
+#endif
 	//OBB
 	d_Boxes.copyFromHost(h_Boxes);
 }
@@ -995,22 +1002,25 @@ void FLIP3D_Cuda::CopyToHost(void)
 	d_KernelDens.copyToHost(h_KernelDens);
 	d_Flag.copyToHost(h_Flag);
 
-	////Visualize
-	//d_gridPos.copyToHost(h_gridPos);
-	//d_gridVel.copyToHost(h_gridVel);
-	//d_gridPress.copyToHost(h_gridPress);
-	//d_gridDens.copyToHost(h_gridDens);
-	//d_gridLevelSet.copyToHost(h_gridLevelSet);
-	//d_gridDiv.copyToHost(h_gridDiv);
-	//d_gridContent.copyToHost(h_gridContent);
-
+#if GRIDRENDER
+	//Visualize
+	d_gridPos.copyToHost(h_gridPos);
+	d_gridVel.copyToHost(h_gridVel);
+	d_gridPress.copyToHost(h_gridPress);
+	d_gridDens.copyToHost(h_gridDens);
+	d_gridLevelSet.copyToHost(h_gridLevelSet);
+	d_gridDiv.copyToHost(h_gridDiv);
+	d_gridContent.copyToHost(h_gridContent);
+#endif
 	//OBB
 	d_Boxes.copyToHost(h_Boxes);
 }
 
 void FLIP3D_Cuda::GridValueVisualize(void)
 {
-	//GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridDiv(), d_gridContent());
+#if GRIDRENDER
+	GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridDiv(), d_gridContent());
+#endif
 }
 
 void FLIP3D_Cuda::draw(void)
@@ -1057,13 +1067,13 @@ void FLIP3D_Cuda::draw(void)
 		//glColor3f(1.0f, 1.0f, 1.0f);
 		//glLineWidth(1.0f);
 		//glBegin(GL_LINES);
-		//float c = 0.2f;
+		//float c = 0.002f;
 		//glVertex3d(position.x, position.y, position.z);
 		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
 		//glEnd();
 	}
 	//printf("cnt: %d\n", cnt);
-
+#if GRIDRENDER
 	for (uint i = 0u; i < _gridRes * _gridRes * _gridRes; i++)
 	{
 		REAL3 position = h_gridPos[i];
@@ -1184,6 +1194,7 @@ void FLIP3D_Cuda::draw(void)
 
 #endif
 	}
+#endif
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();
