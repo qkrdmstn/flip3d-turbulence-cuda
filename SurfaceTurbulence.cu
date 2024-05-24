@@ -34,9 +34,9 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 {
 	
 	maintenanceParam._coarseRes = gridRes;
-	maintenanceParam._coarseScaleLen = 0.5 / gridRes; //asd
+	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.5; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 2;
@@ -71,7 +71,7 @@ void SurfaceTurbulence::InitWaveParam(void)
 	waveParam._waveMaxAmplitude = maintenanceParam._coarseScaleLen * 0.25;
 	waveParam._waveMaxFreq = 800.0;
 	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._coarseScaleLen * 0.05; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._coarseScaleLen * 0.025; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._coarseScaleLen * 0.01;
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
 }

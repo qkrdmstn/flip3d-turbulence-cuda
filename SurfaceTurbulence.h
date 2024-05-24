@@ -40,7 +40,7 @@ struct MaintenanceParam
 };
 
 
-#define SURFACE_DENSITY 20.0
+#define SURFACE_DENSITY 22.5
 #define PER_PARTICLE 140
 
 class SurfaceTurbulence
