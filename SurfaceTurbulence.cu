@@ -60,8 +60,8 @@ void SurfaceTurbulence::InitWaveParam(void)
 	waveParam._waveMaxAmplitude = maintenanceParam._coarseScaleLen;
 	waveParam._waveMaxFreq = 100;
 	waveParam._waveMaxSeedingAmplitude = 2 * maintenanceParam._coarseScaleLen; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = 0.0125; // any curvature higher than this value will seed waves
-	waveParam._waveSeedingCurvatureThresholdRadius = 0.1;
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._coarseScaleLen * 0.025; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._coarseScaleLen * 0.01;
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
 
 	//waveParam._dt = 0.005f;

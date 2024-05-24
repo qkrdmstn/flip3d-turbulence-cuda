@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 128
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -42,18 +42,18 @@ void	FLIPEngine::simulation(void)
 	_turbulence->Advection_kernel();
 
 	if (_frame == 0) {
-		for (int i = 0; i < 24; i++) {
+		for (int i = 0; i < 30; i++) {
 			_turbulence->SurfaceMaintenance();
 			if (i % 6 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 24.0);
+				printf("%.4f%\n", (float)(i + 1) / 30.0);
 		}
 
 	}
 	else {
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 8; i++) {
 			_turbulence->SurfaceMaintenance();
 			if (i % 2 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 4);
+				printf("%.4f%\n", (float)(i + 1) / 8);
 		}
 	}
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
