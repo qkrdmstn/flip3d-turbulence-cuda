@@ -8,7 +8,7 @@
 #include <cmath>
 #include<stdio.h>
 
-__global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos, uint* particleGridIdx, uint numCoarseParticles, uint* gridIdx, uint* cellStart, uint* cellEnd, uint baseRes, REAL fineScaleLen, REAL outerRadius, REAL innerRadius)
+__global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos, uint* particleGridIdx, uint numCoarseParticles, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numCoarseParticles)
@@ -24,9 +24,9 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 	if (coarseType[idx] != FLUID)
 		return;
 
-	uint discretization = (uint)PI * (outerRadius + innerRadius) / fineScaleLen;
-	REAL dtheta = 2.0 * fineScaleLen / (outerRadius + innerRadius);
-	REAL outerRadius2 = outerRadius * outerRadius;
+	uint discretization = (uint)PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / maintenanceParam._fineScaleLen;
+	REAL dtheta = 2.0 * maintenanceParam._fineScaleLen / (maintenanceParam._outerRadius + maintenanceParam._innerRadius);
+	REAL outerRadius2 = maintenanceParam._outerRadius * maintenanceParam._outerRadius;
 
 	BOOL nearSurface = false;
 	REAL3 pos = coarsePos[idx];
@@ -34,16 +34,16 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 		for (int j = -1; j <= 1; j++) {
 			for (int k = -1; k <= 1; k++) {
 				
-				REAL x = max(0.0f, min((REAL)baseRes, baseRes * pos.x));
-				REAL y = max(0.0f, min((REAL)baseRes, baseRes * pos.y));
-				REAL z = max(0.0f, min((REAL)baseRes, baseRes * pos.z));
+				REAL x = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.x));
+				REAL y = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.y));
+				REAL z = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.z));
 
 				uint indexX = x + i;
 				uint indexY = y + j;
 				uint indexZ = z + k;
 				if (indexX < 0 || indexY < 0 || indexZ < 0) continue;
 				
-				if (GetNumFluidParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, baseRes) == 0){
+				if (GetNumFluidParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0){
 					nearSurface = true;
 					break;
 				}
@@ -58,14 +58,14 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 			for (REAL phi = 0; phi < 2.0 * PI; phi += REAL(2.0 * PI / discretization2)) {
 				REAL theta = i * dtheta;
 				REAL3 normal = make_REAL3(sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi));
-				REAL3 position = pos + normal * outerRadius;
+				REAL3 position = pos + normal * maintenanceParam._outerRadius;
 
 				bool valid = true;
-				int3 gridPos = calcGridPos(pos, 1.0 / baseRes);
+				int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._coarseRes);
 				FOR_NEIGHBOR(2) {
 					int3 neighGridPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 
-					uint neighHash = calcGridHash(neighGridPos, baseRes);
+					uint neighHash = calcGridHash(neighGridPos, maintenanceParam._coarseRes);
 					uint startIdx = cellStart[neighHash];
 					if (startIdx != 0xffffffff) {
 						uint endIdx = cellEnd[neighHash];
@@ -74,7 +74,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 							uint sortedIdx = gridIdx[i];
 							REAL3 neighborPos = coarsePos[sortedIdx];
 
-							REAL cellSize = 1.0 / baseRes;
+							REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 							REAL d2 = LengthSquared(position - neighborPos);
 							//if (d2 > cellSize * cellSize * 4)
 							//	continue;
@@ -120,13 +120,13 @@ __global__ void StateCheck_D(REAL3* finePos, uint* particleGridIdx, uint* stateD
 	}
 }
 
-__global__ void ComputeCoarseDens_D(REAL r, REAL3* coarsePos, uint* coarseType, REAL* coarseKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint hashRes, uint numCoarseParticles)
+__global__ void ComputeCoarseDens_D(REAL r, REAL3* coarsePos, uint* coarseType, REAL* coarseKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numCoarseParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numCoarseParticles)
 		return;
 
-	REAL cellSize = 1.0 / hashRes;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL3 pos1 = coarsePos[idx];
 	int3 gridPos = calcGridPos(pos1, cellSize);
 
@@ -134,7 +134,7 @@ __global__ void ComputeCoarseDens_D(REAL r, REAL3* coarsePos, uint* coarseType, 
 	int width = (r / cellSize) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, hashRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -154,13 +154,13 @@ __global__ void ComputeCoarseDens_D(REAL r, REAL3* coarsePos, uint* coarseType, 
 	coarseKernelDens[idx] = kernelDens;
 }
 
-__global__ void ComputeFineDens_D(REAL r, REAL3* finePos, REAL* fineKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint hashRes, uint numFineParticles)
+__global__ void ComputeFineDens_D(REAL r, REAL3* finePos, REAL* fineKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL cellSize = 1.0 / hashRes;
+	REAL cellSize = 1.0 / maintenanceParam._fineRes;
 	REAL3 pos1 = finePos[idx];
 	int3 gridPos = calcGridPos(pos1, cellSize);
 
@@ -168,7 +168,7 @@ __global__ void ComputeFineDens_D(REAL r, REAL3* finePos, REAL* fineKernelDens, 
 	int width = (r / cellSize) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, hashRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -191,20 +191,21 @@ __global__ void ComputeFineDens_D(REAL r, REAL3* finePos, REAL* fineKernelDens, 
 
 
 //Advection
-__device__ REAL NeighborCoarseWeight(REAL r, REAL3* finePos, REAL3* coarsePos, uint* coarseType, REAL* coarseKernelDens, uint fineIdx, uint coarseIdx, uint* gridIdx, uint* cellStart, uint* cellEnd, uint coarseRes)
+__device__ REAL NeighborCoarseWeight(REAL r, REAL3* finePos, REAL3* coarsePos, uint* coarseType, REAL* coarseKernelDens, uint fineIdx, uint coarseIdx, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
 	REAL3 fPos = finePos[fineIdx];
 	REAL3 cPos = coarsePos[coarseIdx];
 	REAL weight = DistKernel((fPos - cPos), r) / coarseKernelDens[coarseIdx];
 	if (weight == 0) return 0;
 
-	REAL cellSize = 1.0 / coarseRes;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL weightSum = 0.0;
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
-	FOR_NEIGHBOR(2) {
+	int width = (r / cellSize) + 1;
+	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, coarseRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -230,22 +231,24 @@ __device__ REAL NeighborCoarseWeight(REAL r, REAL3* finePos, REAL3* coarsePos, u
 		return 0.0f;
 }
 
-__global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBeforePos, uint* coarseType, REAL* coarseKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, REAL coarseScaleLen, uint coarseRes, BOOL* flag)
+__global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBeforePos, uint* coarseType, REAL* coarseKernelDens, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, BOOL* flag, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 2.0 * coarseScaleLen;
+	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
 
-	REAL cellSize = 1.0 / coarseRes;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL3 fPos = finePos[idx];
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
 	REAL3 displacement = make_REAL3(0, 0, 0);
-	FOR_NEIGHBOR(2) {
+
+	int width = (r / cellSize) + 1;
+	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, coarseRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -260,11 +263,11 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 				REAL3 curPos = coarseCurPos[sortedIdx];
 
 				REAL d2 = LengthSquared(curPos - fPos);
-				if (d2 > cellSize * cellSize * 4)
+				if (d2 > r * r)
 					continue;
 
 				REAL3 beforePos = coarseBeforePos[sortedIdx];
-				displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, coarseRes);
+				displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
 			}
 		}
 	}END_FOR;
@@ -280,23 +283,25 @@ __device__ REAL MetaballDens(REAL dist, REAL coarseScaleLen)
 	return exp(-2 * pow((dist / coarseScaleLen), 2));
 }
 
-__device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL outerRadius, REAL innerRadius, uint coarseRes)
+__device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
-	REAL coarseScaleLen = 1.0 / coarseRes;
-	REAL cellSize = coarseScaleLen;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;;
 
-	REAL R = outerRadius;
-	REAL r = innerRadius;
+	REAL R = maintenanceParam._outerRadius;
+	REAL r = maintenanceParam._innerRadius;
 	REAL u = (3.0 / 2.0) * R;
-	REAL a = log(2.0 / (1.0 + MetaballDens(u, coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
+	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
 	REAL3 fPos = finePos;
 	int3 gridPos = calcGridPos(fPos, cellSize);
 	
 	REAL f = 0.0;
-	FOR_NEIGHBOR(3) {
+
+	REAL radius = 2 * maintenanceParam._coarseScaleLen;
+	int width = (radius / cellSize) + 1;
+	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, coarseRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -308,7 +313,7 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx,
 				REAL3 cPos = coarsePos[sortedIdx];
 
 				REAL d2 = LengthSquared(fPos - cPos);
-				if (d2 > cellSize * cellSize * 4)
+				if (d2 > radius * radius)
 					continue;
 
 				f += exp(-a * d2);
@@ -323,15 +328,14 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx,
 	return f;
 }
 
-__device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL outerRadius, REAL innerRadius, uint coarseRes, int width)
+__device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, int width, MaintenanceParam maintenanceParam)
 {
-	REAL coarseScaleLen = 1.0 / coarseRes;
-	REAL cellSize = coarseScaleLen;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 
-	REAL R = outerRadius;
-	REAL r = innerRadius;
+	REAL R = maintenanceParam._outerRadius;
+	REAL r = maintenanceParam._innerRadius;
 	REAL u = (3.0 / 2.0) * R;
-	REAL a = log(2.0 / (1.0 + MetaballDens(u, coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
+	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
 	REAL3 fPos = finePos;
 	int3 gridPos = calcGridPos(fPos, cellSize);
@@ -339,7 +343,7 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 	REAL3 gradient = make_REAL3(0, 0, 0);
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, coarseRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -351,7 +355,7 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 				REAL3 cPos = coarsePos[sortedIdx];
 
 				REAL d2 = LengthSquared(fPos - cPos);
-				if (d2 > cellSize * cellSize * 4)
+				if (d2 > cellSize * cellSize * width * width)
 					continue;
 
 				gradient += (fPos - cPos) * 2.0 * a * exp(-a * d2);
@@ -363,20 +367,20 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 	return gradient;
 }
 
-__global__ void SurfaceConstraint_D(REAL3* finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, REAL outerRadius, REAL innerRadius, uint coarseRes, uint numFineParticles, REAL3* normal)
+__global__ void SurfaceConstraint_D(REAL3* finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, REAL3* normal, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL R = outerRadius;
-	REAL r = innerRadius;
+	REAL R = maintenanceParam._outerRadius;
+	REAL r = maintenanceParam._innerRadius;
 
 	REAL3 fPos = finePos[idx];
-	REAL levelSet = MetaballLevelSet(fPos, coarsePos, gridIdx, cellStart, cellEnd, outerRadius, innerRadius, coarseRes);
+	REAL levelSet = MetaballLevelSet(fPos, coarsePos, gridIdx, cellStart, cellEnd, maintenanceParam);
 	if (levelSet <= 1.0 && levelSet >= 0.0) return;
 
-	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, gridIdx, cellStart, cellEnd, outerRadius, innerRadius, coarseRes, 2); // Constraints Projection
+	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, gridIdx, cellStart, cellEnd, 2, maintenanceParam); // Constraints Projection
 	if (levelSet < 0.0) {
 		fPos -= gradient * (R - r) * levelSet;
 	}
@@ -404,21 +408,21 @@ __device__ REAL NeighborFineWeight(REAL r, REAL3* finePos, REAL* fineKernelDens,
 		return 0.0f;
 }
 
-__global__ void ComputeFineNeighborWeightSum_D(REAL r, REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, uint* gridIdx, uint* cellStart, uint* cellEnd, uint fineRes, uint numFineParticles)
+__global__ void ComputeFineNeighborWeightSum_D(REAL r, REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
 	REAL3 fPos1 = finePos[idx];
-	REAL cellSize = 1.0 / fineRes;
+	REAL cellSize = 1.0 / maintenanceParam._fineRes;
 	REAL weightSum = 0.0;
 	int3 gridPos = calcGridPos(fPos1, cellSize);
 
 	REAL width = (r / cellSize) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -437,17 +441,17 @@ __global__ void ComputeFineNeighborWeightSum_D(REAL r, REAL3* finePos, REAL* fin
 	fineWeightSum[idx] = weightSum;
 }
 
-__global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, uint* coarseCellStart, uint* coarseCellEnd, uint coarseRes,
-										REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, REAL3* surfaceNormal, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles,
-										REAL outerRadius, REAL innerRadius)
+__global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, uint* coarseCellStart, uint* coarseCellEnd,
+										REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, REAL3* surfaceNormal, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles,
+										MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 1.0 / coarseRes;
+	REAL r = maintenanceParam._coarseScaleLen;
 	REAL3 fPos = finePos[idx];
-	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseGridIdx, coarseCellStart, coarseCellEnd, outerRadius, innerRadius, coarseRes, 2);
+	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseGridIdx, coarseCellStart, coarseCellEnd, 2, maintenanceParam);
 
 	REAL3 n = gradient;
 	REAL3 vx = make_REAL3(1, 0, 0);
@@ -463,11 +467,11 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, u
 	REAL sw = 0, swx = 0, swy = 0, swxy = 0, swx2 = 0, swy2 = 0, swxz = 0, swyz = 0, swz = 0;
 
 	REAL3 pos1 = finePos[idx];
-	int3 gridPos = calcGridPos(pos1, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos1, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -525,21 +529,21 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseGridIdx, u
 	//}
 }
 
-__global__ void SmoothNormal_D(REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, REAL3* surfaceTempNormal, REAL3* surfaceNormal, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, uint coarseRes)
+__global__ void SmoothNormal_D(REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, REAL3* surfaceTempNormal, REAL3* surfaceNormal, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles,  MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 1.0 / coarseRes;
+	REAL r = maintenanceParam._coarseScaleLen;
 	REAL3 fPos = finePos[idx];
 
 	REAL3 newNormal = make_REAL3(0,0,0);
-	int3 gridPos = calcGridPos(fPos, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(fPos, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -578,23 +582,23 @@ __global__ void CopyToPos_D(REAL3* finePos, REAL3* fineTempPos, uint numFinePart
 	finePos[idx] = fineTempPos[idx];
 }
 
-__global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, uint coarseRes)
+__global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles,MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 1.0 / coarseRes;
+	REAL r = maintenanceParam._coarseScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
 	REAL3 displacement = make_REAL3(0, 0, 0);
 
-	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -626,13 +630,13 @@ __global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3
 	fineTempPos[idx] += displacement;
 }
 
-__global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles)
+__global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3 * fineScaleLen;
+	REAL r = 3 * maintenanceParam._fineScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
@@ -640,11 +644,11 @@ __global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL
 
 	REAL3 displacement = make_REAL3(0, 0, 0);
 
-	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -665,7 +669,7 @@ __global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL
 			}
 		}
 	}END_FOR;
-	displacement *= 0.5 * fineScaleLen;
+	displacement *= 0.5 * maintenanceParam._fineScaleLen;
 	fineTempPos[idx] += displacement;
 
 }
@@ -687,8 +691,8 @@ __device__ BOOL IsInDomain(REAL3 pos)
 		return false;
 }
 
-__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles,
-	REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
+__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles,
+	REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -699,8 +703,8 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	secondParticleGridIdx[insertIdx] = numCoarseParticles * PER_PARTICLE;
 
 	//tam
-	REAL tangentRadius = 3.0 * fineScaleLen;
-	REAL insertRadius = 2.0 * fineScaleLen;
+	REAL tangentRadius = 3.0 * maintenanceParam._fineScaleLen;
+	REAL insertRadius = 2.0 * maintenanceParam._fineScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
@@ -708,11 +712,11 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	REAL3 displacementTangent = make_REAL3(0, 0, 0);
 
-	int3 gridPos1 = calcGridPos(pos, 1.0 / fineRes);
-	int width1 = (tangentRadius * fineRes) + 1;
+	int3 gridPos1 = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width1 = (tangentRadius * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width1) {
 		int3 neighborPos = make_int3(gridPos1.x + dx, gridPos1.y + dy, gridPos1.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -741,11 +745,11 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	int cnt = 0;
 
-	int3 gridPos2 = calcGridPos(center, 1.0 / fineRes);
-	int width2 = ((insertRadius - 1e-6) * fineRes) + 1;
+	int3 gridPos2 = calcGridPos(center, 1.0 / maintenanceParam._fineRes);
+	int width2 = ((insertRadius - 1e-6) * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width2) {
 		int3 neighborPos = make_int3(gridPos2.x + dx, gridPos2.y + dy, gridPos2.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -774,7 +778,7 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	}
 }
 
-__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
+__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -782,14 +786,14 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	secondParticleGridIdx[idx] = idx;
 
-	REAL deleteRadius = (1.0 / 4.0) * (fineScaleLen);
+	REAL deleteRadius = (1.0 / 4.0) * (maintenanceParam._fineScaleLen);
 	REAL3 pos = finePos[idx];
 
-	int3 gridPos1 = calcGridPos(pos, 1.0 / fineRes);
-	int width1 = (deleteRadius * fineRes) + 1;
+	int3 gridPos1 = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width1 = (deleteRadius * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width1) {
 		int3 neighborPos = make_int3(gridPos1.x + dx, gridPos1.y + dy, gridPos1.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -815,22 +819,21 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	}END_FOR;
 }
 
-__global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, uint coarseRes, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
+__global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL coarseScaleLen = 1.0 / coarseRes;
-	REAL r = 2.0 * coarseScaleLen;
+	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
+	REAL cellSize = 1.0/maintenanceParam._coarseRes;
 
-	REAL cellSize = coarseScaleLen;
 	REAL3 fPos = finePos[idx];
 	int3 gridPos = calcGridPos(fPos, cellSize);
 	int cnt = 0;
 	FOR_NEIGHBOR(2) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, coarseRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -863,17 +866,17 @@ __global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL
 	}
 }
 
-__global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, uint coarseRes, REAL outerRadius, REAL innerRadius, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH)
+__global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL cellSize = 1.0 / coarseRes;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL3 fPos = finePos[idx];
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
-	REAL levelSet = MetaballLevelSet(fPos, coarsePos, gridIdx, cellStart, cellEnd, outerRadius, innerRadius, coarseRes);
+	REAL levelSet = MetaballLevelSet(fPos, coarsePos, gridIdx, cellStart, cellEnd, maintenanceParam);
 	if (levelSet < -0.2f || levelSet > 1.2)
 	{
 		secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
@@ -887,23 +890,23 @@ __global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REA
 
 
 //Compute Curvature
-__global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, REAL coarseRes)
+__global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = (1.0 / coarseRes);
+	REAL r = maintenanceParam._coarseScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
 	REAL curvature = 0.0f;
 
-	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -921,22 +924,22 @@ __global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* s
 	tempCurvature[idx] = fabs(curvature);
 }
 
-__global__ void SmoothCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL* curvature, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, uint numFineParticles, REAL coarseRes)
+__global__ void SmoothCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL* curvature, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = (1.0 / coarseRes);
+	REAL r = maintenanceParam._coarseScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL newCurvature = 0.0f;
 
-	int3 gridPos = calcGridPos(pos, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -982,13 +985,13 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 	waveH[idx] += seed[idx];
 }
 
-__global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL fineScaleLen, uint numFineParticles, uint numCoarseParticles)
+__global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3.0 * fineScaleLen;
+	REAL r = 3.0 * maintenanceParam._fineScaleLen;
 	REAL3 pos = finePos[idx];
 	REAL3 n = surfaceNormal[idx];
 	REAL3 vx = make_REAL3(1, 0, 0);
@@ -1001,12 +1004,12 @@ __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNorm
 	Normalize(t2);
 
 	REAL3 pos1 = finePos[idx];
-	int3 gridPos = calcGridPos(pos1, 1.0 / fineRes);
-	int width = (r * fineRes) + 1;
+	int3 gridPos = calcGridPos(pos1, 1.0 / maintenanceParam._fineRes);
+	int width = (r * maintenanceParam._fineRes) + 1;
 	REAL sw = 0, swx = 0, swy = 0, swxy = 0, swx2 = 0, swy2 = 0, swxz = 0, swyz = 0, swz = 0;
 	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-		uint neighHash = calcGridHash(neighborPos, fineRes);
+		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
 		if (startIdx != 0xffffffff)
@@ -1051,13 +1054,13 @@ __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNorm
 	}
 }
 
-__global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveNormal, REAL* waveH, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint fineRes, REAL finScaleLen, uint numFineParticles)
+__global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveNormal, REAL* waveH, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 3.0 * finScaleLen;
+	REAL r = 3.0 * maintenanceParam._fineScaleLen;
 	REAL3 pos1 = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
 
@@ -1077,11 +1080,11 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 	if ((waveN.y <= DBL_EPSILON && waveN.y >= -DBL_EPSILON)) laplacian[idx] = 0.0f;
 	else
 	{
-		int3 gridPos = calcGridPos(pos1, 1.0 / fineRes);
-		int width = (r * fineRes) + 1;
+		int3 gridPos = calcGridPos(pos1, 1.0 / maintenanceParam._fineRes);
+		int width = (r * maintenanceParam._fineRes) + 1;
 		FOR_NEIGHBOR(width) {
 			int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-			uint neighHash = calcGridHash(neighborPos, fineRes);
+			uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 			uint startIdx = fineCellStart[neighHash];
 
 			if (startIdx != 0xffffffff)

@@ -26,6 +26,20 @@ struct WaveParam
 	REAL _waveSeedStepSizeRatioOfMax = 0.025;
 };
 
+__host__ __device__
+struct MaintenanceParam
+{
+	//Surface Maintenance Coefficient
+	REAL _coarseScaleLen;
+	REAL _fineScaleLen;
+	REAL _outerRadius;
+	REAL _innerRadius;
+
+	uint _fineRes;
+	uint _coarseRes;
+};
+
+
 #define SURFACE_DENSITY 20.0
 #define PER_PARTICLE 140
 
@@ -93,24 +107,15 @@ public: //Hash
 	Dvector<uint> d_CellStart;
 	Dvector<uint> d_CellEnd;
 
-	uint _hashGridRes;
-
-public: // Surface Maintenance Coefficient
-	REAL _coarseScaleLen;
-	REAL _fineScaleLen;
-	REAL _outerRadius;
-	REAL _innerRadius;
-
 public:
+	MaintenanceParam maintenanceParam;
 	WaveParam waveParam;
-
 
 public:
 	uint _numFineParticles;
 
 public:
 	FLIP3D_Cuda* _fluid;
-	uint _baseRes;
 	
 public:
 	SurfaceTurbulence();
@@ -118,6 +123,7 @@ public:
 	~SurfaceTurbulence();
 
 public: //Initialize
+	void InitMaintenanceParam(uint gridRes);
 	void InitWaveParam(void);
 	void Initialize_kernel(void);
 	void ThrustScanWrapper_kernel(uint* output, uint*input, uint numElements);
