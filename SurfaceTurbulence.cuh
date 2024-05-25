@@ -254,7 +254,7 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 2.0 * maintenanceParam._outerRadius;
+	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
 
 	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL3 fPos = finePos[idx];
@@ -285,15 +285,15 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 					continue;
 
 				REAL3 beforePos = coarseBeforePos[sortedIdx];
-				REAL w = weightKernelAdvection((beforePos - fPos), maintenanceParam);
-				displacement += w * (curPos - beforePos);
-				totalW += w;
+				//REAL w = weightKernelAdvection((beforePos - fPos), maintenanceParam);
+				//displacement += w * (curPos - beforePos);
+				//totalW += w;
 
-				//displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
+				displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
 			}
 		}
 	}END_FOR;
-	if (totalW != 0) displacement /= totalW;
+	//if (totalW != 0) displacement /= totalW;
 	finePos[idx] += displacement;
 	flag[idx] = false;
 }
@@ -307,7 +307,7 @@ __device__ REAL MetaballDens(REAL dist, REAL outerRadius)
 
 __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
-	REAL cellSize = 1.0 / maintenanceParam._coarseRes;;
+	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 
 	REAL R = maintenanceParam._outerRadius;
 	REAL r = maintenanceParam._innerRadius;
