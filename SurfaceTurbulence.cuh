@@ -528,10 +528,7 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseType, uint
 	}END_FOR;
 	REAL det = -sw * swxy * swxy + 2.0 * swx * swxy * swy - swx2 * swy * swy - swx * swx * swy2 + sw * swx2 * swy2;
 	
-	//if (isnan(det))
-	//{
-	//	printf("%f %f %f %f %f %f %f %f %f\n", sw, swx, swy, swxy, swx2, swy2, swxz, swyz, swz);
-	//}
+
 	if ((det <= DBL_EPSILON && det >= -DBL_EPSILON)) {
 		surfaceNormal[idx] = make_REAL3(0, 0, 0);
 	}
@@ -549,12 +546,7 @@ __global__ void ComputeSurfaceNormal_D(	REAL3* coarsePos, uint* coarseType, uint
 		if (Dot(normal, gradient) < 0.0) { normal = normal * -1; }
 		surfaceNormal[idx] = normal;
 	}
-	//if (isnan(surfaceNormal[idx].x) || isnan(surfaceNormal[idx].y) || isnan(surfaceNormal[idx].z) || isnan(det)) {
 
-	//	//printf("asd idx: %d, newNormal: %f %f %f \n det: %f\n abc: %f %f %f\n pos: %f %f %f\n", idx, surfaceNormal[idx].x, surfaceNormal[idx].y, surfaceNormal[idx].z, det, abc.x, abc.y, abc.z, finePos[idx].x, finePos[idx].y, finePos[idx].z);
-	//	printf("asd idx: %d, newNormal: %f %f %f \n det: %f\n  pos: %f %f %f\n", idx, surfaceNormal[idx].x, surfaceNormal[idx].y, surfaceNormal[idx].z, det, finePos[idx].x, finePos[idx].y, finePos[idx].z);
-
-	//}
 }
 
 __global__ void SmoothNormal_D(REAL3* finePos, REAL* fineKernelDens, REAL* fineWeightSum, REAL3* surfaceTempNormal, REAL3* surfaceNormal, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles,  MaintenanceParam maintenanceParam)
@@ -586,9 +578,6 @@ __global__ void SmoothNormal_D(REAL3* finePos, REAL* fineKernelDens, REAL* fineW
 	}END_FOR;
 	Normalize(newNormal);
 	surfaceNormal[idx] = newNormal;
-
-	//if(isnan(newNormal.x) || isnan(newNormal.y) || isnan(newNormal.z))
-	//	printf("newNormal: %f %f %f\n", newNormal.x, newNormal.y, newNormal.z);
 }
 
 //Normal Regularization
