@@ -35,11 +35,11 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.1 ; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen ; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
-	maintenanceParam._fineRes = maintenanceParam._coarseRes * 2;
-	maintenanceParam._fineScaleLen = PI * (maintenanceParam._coarseScaleLen + (maintenanceParam._coarseScaleLen / 2.0)) / SURFACE_DENSITY;
+	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
+	maintenanceParam._fineScaleLen = PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / SURFACE_DENSITY;
 	//int res = 1.0 / _fineScaleLen;
 	//int i = 0;
 	//for (i = 0; i < 10; i++)
@@ -106,9 +106,9 @@ void SurfaceTurbulence::Advection_kernel(void)
 	_fluid->SetHashTable_kernel();
 	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
 
-	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
-		_fluid->_numParticles, maintenanceParam);
+	//ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
+	//	_fluid->_numParticles, maintenanceParam);
  
 	Advection_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_BeforePos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
@@ -118,16 +118,16 @@ void SurfaceTurbulence::Advection_kernel(void)
 void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 {
 	SurfaceConstraint_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, d_SurfaceNormal(), maintenanceParam);
+		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, d_SurfaceNormal(), maintenanceParam);
 	
 }
 
 void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
 {
 	REAL r = maintenanceParam._coarseScaleLen;
-	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
-			_fluid->_numParticles, maintenanceParam);
+	//ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
+	//		_fluid->_numParticles, maintenanceParam);
 
 	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
@@ -136,7 +136,7 @@ void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
 		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
 
 	ComputeSurfaceNormal_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(_fluid->d_CurPos(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
+		(_fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
 			d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_TempNormal(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles,
 			maintenanceParam);
 
@@ -181,10 +181,10 @@ void SurfaceTurbulence::Regularization_kernel(void)
 		(d_Pos(), d_TempPos(), _numFineParticles);
 
 	NormalRegularization_kernel();
-	//TangentRegularization_kernel();
+	TangentRegularization_kernel();
 
-	//CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_Pos(), d_TempPos(), _numFineParticles);
+	CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_TempPos(), _numFineParticles);
 }
 
 void SurfaceTurbulence::InsertFineParticles(void)
@@ -247,13 +247,16 @@ void SurfaceTurbulence::InsertFineParticles(void)
 void SurfaceTurbulence::DeleteFineParticles(void)
 {
 	DeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), 
+			_numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	AdvectionDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
+			_numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	ConstraintDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles,  d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
+			_numFineParticles, _fluid->_numParticles,  d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3;
@@ -300,8 +303,10 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 	SetHashTable_kernel();
 	Regularization_kernel();
 
-	//SetHashTable_kernel();
-	//InsertFineParticles();
+	SetHashTable_kernel();
+	InsertFineParticles();
+
+	SetHashTable_kernel();
 	//DeleteFineParticles();
 }
 
@@ -575,20 +580,29 @@ void SurfaceTurbulence::drawFineParticles(void)
 		REAL3 position = h_Pos[i];
 		REAL3 surfaceNormal = h_SurfaceNormal[i];
 		//REAL3 surfaceNormal = h_TempNormal[i];
+		REAL3 tangent = h_Tangent[i];
 		REAL3 waveNormal = h_WaveNormal[i];
 		REAL curvature = h_Curvature[i];
 		REAL laplacian = h_Laplacian[i];
 		REAL waveH = h_WaveH[i];
 		BOOL flag = h_Flag[i];
 
-		////Draw normal
+		//////Draw normal
+		//glColor3f(1.0f, 1.0f, 1.0f);
+		//double scale = 0.02;
+		//glBegin(GL_LINES);
+		//glVertex3d(position.x, position.y, position.z);
+		//glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
+		//glEnd();
+
+		//////Draw tangent
 		glColor3f(1.0f, 1.0f, 1.0f);
 		double scale = 0.02;
 		glBegin(GL_LINES);
 		glVertex3d(position.x, position.y, position.z);
-		glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
+		glVertex3d(position.x + tangent.x * scale, position.y + tangent.y * scale, position.z + tangent.z * scale);
 		glEnd();
-
+		
 		//////Draw waveNormal
 		//glColor3f(1.0f, 1.0f, 1.0f);
 		//double scale = 0.03;

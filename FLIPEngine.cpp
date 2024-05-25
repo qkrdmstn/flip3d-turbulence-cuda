@@ -39,22 +39,22 @@ void	FLIPEngine::simulation(void)
 #if TURBULENCE
 	_turbulence->Advection_kernel();
 
-	if (_frame == 0) {
-		for (int i = 0; i < 30; i++) {
-			_turbulence->SurfaceMaintenance();
-			if (i % 6 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 30.0);
-		}
+	//if (_frame == 0) {
+	//	for (int i = 0; i < 30; i++) {
+	//		_turbulence->SurfaceMaintenance();
+	//		if (i % 6 == 0)
+	//			printf("%.4f%\n", (float)(i + 1) / 30.0);
+	//	}
 
-	}
-	else {
-		for (int i = 0; i < 8; i++) {
-			_turbulence->SurfaceMaintenance();
-			if (i % 2 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 8);
-		}
-	}
-	//printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
+	//}
+	//else {
+	//	for (int i = 0; i < 8; i++) {
+	//		_turbulence->SurfaceMaintenance();
+	//		if (i % 2 == 0)
+	//			printf("%.4f%\n", (float)(i + 1) / 8);
+	//	}
+	//}
+	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
 	//_turbulence->WaveSimulation_kernel(_frame);
 #endif
 

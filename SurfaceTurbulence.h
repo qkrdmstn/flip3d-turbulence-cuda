@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define SURFACE_DENSITY 30.0
+#define SURFACE_DENSITY 20.0
 #define PER_PARTICLE 140
 
 __host__ __device__
@@ -163,6 +163,7 @@ public:		//Cuda
 	void ComputeGridSize(uint n, uint blockSize, uint& numBlocks, uint& numThreads)
 	{
 		numThreads = min(blockSize, n);
+		//printf("n: %d, blockSize: %d, numThreads: %d\n", n, blockSize, numThreads);
 		numBlocks = divup(n, numThreads);
 	}
 
