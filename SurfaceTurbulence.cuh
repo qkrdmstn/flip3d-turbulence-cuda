@@ -47,7 +47,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 				uint indexZ = z + k;
 				if (indexX < 0 || indexY < 0 || indexZ < 0) continue;
 				
-				if (GetNumParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0){
+				if (GetNumFluidParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0){
 					nearSurface = true;
 					break;
 				}
@@ -82,10 +82,10 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 
 							REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 							REAL d2 = LengthSquared(position - neighborPos);
-							//if (d2 > cellSize * cellSize * 4)
-							//	continue;
-							//if (coarseType[sortedIdx] == WALL)
-							//	continue;
+							if (d2 > r * r)
+								continue;
+							if (coarseType[sortedIdx] != FLUID)
+								continue;
 
 							if (idx != sortedIdx && d2 < outerRadius2) {
 								valid = false;
@@ -710,7 +710,7 @@ __device__ BOOL IsInDomain(REAL3 pos)
 }
 
 __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles,
-	REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+										REAL3* coarsePos, uint* coarseType, uint* coarseGridIdx, uint* coarseCellStart, uint* coarseCellEnd, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -722,7 +722,7 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	//tan
 	REAL tangentRadius = 3.0 * maintenanceParam._fineScaleLen;
-	REAL insertRadius = 1.0 * maintenanceParam._fineScaleLen;
+	REAL insertRadius = 2.0 * maintenanceParam._fineScaleLen;
 
 	REAL3 pos = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
@@ -758,6 +758,30 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	Normalize(displacementTangent);
 	REAL3 center = pos + (displacementTangent * insertRadius);
 	if (!IsInDomain(center)) return;
+
+	BOOL nearSurface = false;
+	for (int i = -1; i <= 1; i++) {
+		for (int j = -1; j <= 1; j++) {
+			for (int k = -1; k <= 1; k++) {
+
+				REAL x = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.x));
+				REAL y = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.y));
+				REAL z = max(0.0f, min((REAL)maintenanceParam._coarseRes, maintenanceParam._coarseRes * pos.z));
+
+				uint indexX = x + i;
+				uint indexY = y + j;
+				uint indexZ = z + k;
+				if (indexX < 0 || indexY < 0 || indexZ < 0) continue;
+
+				if (GetNumParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, coarseGridIdx, coarseCellStart, coarseCellEnd, maintenanceParam._coarseRes) == 0) {
+					nearSurface = true;
+					break;
+				}
+			}
+		}
+	}
+	if (!nearSurface)
+		return;
 
 	int cnt = 0;
 

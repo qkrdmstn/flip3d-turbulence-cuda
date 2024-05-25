@@ -35,11 +35,12 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.1; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.5; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
-	maintenanceParam._fineScaleLen = PI * (maintenanceParam._coarseScaleLen + maintenanceParam._coarseScaleLen / 2.0) / SURFACE_DENSITY;
+	//maintenanceParam._fineScaleLen = PI * (maintenanceParam._coarseScaleLen + maintenanceParam._coarseScaleLen / 2.0) / SURFACE_DENSITY;
+	maintenanceParam._fineScaleLen = PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / SURFACE_DENSITY;
 	//int res = 1.0 / _fineScaleLen;
 	//int i = 0;
 	//for (i = 0; i < 10; i++)
@@ -203,7 +204,7 @@ void SurfaceTurbulence::InsertFineParticles(void)
 
 	InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles,
-			d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+			_fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3;
@@ -303,11 +304,11 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 	SetHashTable_kernel();
 	Regularization_kernel();
 
-	//SetHashTable_kernel();
-	//InsertFineParticles();
+	SetHashTable_kernel();
+	InsertFineParticles();
 
-	//SetHashTable_kernel();
-	//DeleteFineParticles();
+	SetHashTable_kernel();
+	DeleteFineParticles();
 }
 
 void  SurfaceTurbulence::ComputeCurvature_kernel(void)
@@ -595,13 +596,13 @@ void SurfaceTurbulence::drawFineParticles(void)
 		//glVertex3d(position.x + surfaceNormal.x * scale, position.y + surfaceNormal.y * scale, position.z + surfaceNormal.z * scale);
 		//glEnd();
 
-		//////Draw tangent
-		glColor3f(1.0f, 1.0f, 1.0f);
-		double scale = 0.02;
-		glBegin(GL_LINES);
-		glVertex3d(position.x, position.y, position.z);
-		glVertex3d(position.x + tangent.x * scale, position.y + tangent.y * scale, position.z + tangent.z * scale);
-		glEnd();
+		////////Draw tangent
+		//glColor3f(1.0f, 1.0f, 1.0f);
+		//double scale = 0.02;
+		//glBegin(GL_LINES);
+		//glVertex3d(position.x, position.y, position.z);
+		//glVertex3d(position.x + tangent.x * scale, position.y + tangent.y * scale, position.z + tangent.z * scale);
+		//glEnd();
 		
 		//////Draw waveNormal
 		//glColor3f(1.0f, 1.0f, 1.0f);

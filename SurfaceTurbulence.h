@@ -162,7 +162,10 @@ public:		//Cuda
 	void CopyToHost(void);
 	void ComputeGridSize(uint n, uint blockSize, uint& numBlocks, uint& numThreads)
 	{
-		numThreads = min(blockSize, n);
+		if (n != 0)
+			numThreads = min(blockSize, n);
+		else
+			numThreads = blockSize;
 		//printf("n: %d, blockSize: %d, numThreads: %d\n", n, blockSize, numThreads);
 		numBlocks = divup(n, numThreads);
 	}

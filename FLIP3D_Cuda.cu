@@ -1049,7 +1049,7 @@ void FLIP3D_Cuda::draw(void)
 		//}
 
 		if (type == WALL ) {
-			continue;
+			//continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
 		else
