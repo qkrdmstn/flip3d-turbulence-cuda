@@ -96,10 +96,10 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
+	//WaterDropTest();
 	//DamBreakTest();
 	//RotateBoxesTest();
-	//MoveBoxTest();
+	MoveBoxTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -428,14 +428,14 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 {
-	//d_Boxes.copyToHost(h_Boxes);
-	////LinearMovingBox_kernel(h_Boxes[0]);
+	d_Boxes.copyToHost(h_Boxes);
+	LinearMovingBox_kernel(h_Boxes[0]);
 	//RotateMovingBox_kernel(h_Boxes[0], true);
-	////RotateMovingBox_kernel(h_Boxes[1], false);
-	//d_Boxes.copyFromHost(h_Boxes);
+	//RotateMovingBox_kernel(h_Boxes[1], false);
+	d_Boxes.copyFromHost(h_Boxes);
 
-	//CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+	CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
 }
 
 void FLIP3D_Cuda::SolvePICFLIP()

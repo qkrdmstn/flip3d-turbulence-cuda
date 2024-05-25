@@ -35,11 +35,11 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen ; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.1; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
-	maintenanceParam._fineScaleLen = PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / SURFACE_DENSITY;
+	maintenanceParam._fineScaleLen = PI * (maintenanceParam._coarseScaleLen + maintenanceParam._coarseScaleLen / 2.0) / SURFACE_DENSITY;
 	//int res = 1.0 / _fineScaleLen;
 	//int i = 0;
 	//for (i = 0; i < 10; i++)
@@ -303,10 +303,10 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 	SetHashTable_kernel();
 	Regularization_kernel();
 
-	SetHashTable_kernel();
-	InsertFineParticles();
+	//SetHashTable_kernel();
+	//InsertFineParticles();
 
-	SetHashTable_kernel();
+	//SetHashTable_kernel();
 	//DeleteFineParticles();
 }
 
