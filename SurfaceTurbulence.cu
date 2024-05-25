@@ -36,7 +36,7 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.6; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 2;
@@ -126,9 +126,6 @@ void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
 {
 	REAL r = maintenanceParam._coarseScaleLen;
-	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
-			_fluid->_numParticles, maintenanceParam);
 
 	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);

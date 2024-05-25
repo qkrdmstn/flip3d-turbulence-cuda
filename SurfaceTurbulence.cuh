@@ -290,7 +290,7 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* gridIdx,
 	REAL R = maintenanceParam._outerRadius;
 	REAL r = maintenanceParam._innerRadius;
 	REAL u = (3.0 / 2.0) * R;
-	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
+	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._outerRadius))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
 	REAL3 fPos = finePos;
 	int3 gridPos = calcGridPos(fPos, cellSize);
@@ -335,7 +335,7 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 	REAL R = maintenanceParam._outerRadius;
 	REAL r = maintenanceParam._innerRadius;
 	REAL u = (3.0 / 2.0) * R;
-	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._coarseScaleLen))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
+	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._outerRadius))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
 	REAL3 fPos = finePos;
 	int3 gridPos = calcGridPos(fPos, cellSize);

@@ -651,20 +651,20 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 					if (Length(relPos) > width * cellSize)
 						continue;
 					if (type2 == WALL) {
-						float dist = hypotLength(relPos);
-						if (dist < density / res.x) {
-							sdf = 4.5f * density / res.x;
-							if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
-								sdf = fmaxf(sdf, 0.01f);
-							}
-							levelSet[key] = -sdf;
+						//float dist = hypotLength(relPos);
+						//if (dist < density / res.x) {
+						//	sdf = 4.5f * density / res.x;
+						//	if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {
+						//		sdf = fmaxf(sdf, 0.01f);
+						//	}
+						//	levelSet[key] = -sdf;
 
-							REAL x = (float)gridIndex.x / (float)res.x;
-							REAL y = (float)gridIndex.y / (float)res.y;
-							REAL z = (float)gridIndex.z / (float)res.z;
-							gridPosition[key] = make_REAL3(x, y, z);
-							return;
-						}
+						//	REAL x = (float)gridIndex.x / (float)res.x;
+						//	REAL y = (float)gridIndex.y / (float)res.y;
+						//	REAL z = (float)gridIndex.z / (float)res.z;
+						//	gridPosition[key] = make_REAL3(x, y, z);
+						//	return;
+						//}
 						continue;
 					}
 					float lengthSquared = (relPos.x * relPos.x + relPos.y * relPos.y + relPos.z * relPos.z);
