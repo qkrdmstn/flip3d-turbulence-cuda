@@ -104,11 +104,11 @@ void SurfaceTurbulence::Initialize_kernel()
 void SurfaceTurbulence::Advection_kernel(void)
 {
 	_fluid->SetHashTable_kernel();
-	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
+	REAL r = 2.0 * maintenanceParam._outerRadius;
 
-	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
-		_fluid->_numParticles, maintenanceParam);
+	//ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
+	//	_fluid->_numParticles, maintenanceParam);
  
 	Advection_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_BeforePos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
@@ -125,9 +125,9 @@ void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
 {
 	REAL r = maintenanceParam._coarseScaleLen;
-	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
-			_fluid->_numParticles, maintenanceParam);
+	//ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
+	//		_fluid->_numParticles, maintenanceParam);
 
 	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);

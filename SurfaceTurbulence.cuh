@@ -285,15 +285,15 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 					continue;
 
 				REAL3 beforePos = coarseBeforePos[sortedIdx];
-				//REAL w = weightKernelAdvection((beforePos - fPos), maintenanceParam);
-				//displacement += w * (curPos - beforePos);
-				//totalW += w;
+				REAL w = weightKernelAdvection((beforePos - fPos), maintenanceParam);
+				displacement += w * (curPos - beforePos);
+				totalW += w;
 
-				displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
+				//displacement += (curPos - beforePos) * NeighborCoarseWeight(r, finePos, coarseCurPos, coarseType, coarseKernelDens, idx, sortedIdx, gridIdx, cellStart, cellEnd, maintenanceParam);
 			}
 		}
 	}END_FOR;
-	//if (totalW != 0) displacement /= totalW;
+	if (totalW != 0) displacement /= totalW;
 	finePos[idx] += displacement;
 	flag[idx] = false;
 }
