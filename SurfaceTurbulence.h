@@ -40,6 +40,10 @@ struct MaintenanceParam
 
 	uint _fineRes;
 	uint _coarseRes;
+
+	//test
+	REAL _normalRadius;
+	REAL _tangentRadius;
 };
 
 class SurfaceTurbulence
@@ -147,6 +151,7 @@ public: //Regularization func
 	void ComputeSurfaceNormal_kernel(void);
 	void NormalRegularization_kernel(void);
 	void TangentRegularization_kernel(void);
+	void TotalRegularization_kernel(void);
 
 public:	//Hash
 	void SetHashTable_kernel(void);

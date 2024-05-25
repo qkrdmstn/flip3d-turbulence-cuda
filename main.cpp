@@ -75,7 +75,7 @@ void Update(void)
 #if SCREEN_CAPTURE
 		if (_frame <= 600 && _frame % 2 == 0)
 		{
-			string path = "image\\64\\Trans\\test3\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\test\\test3\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
