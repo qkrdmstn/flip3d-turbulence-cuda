@@ -36,7 +36,7 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.6; //_coarseScaleLen;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 1.0; //_coarseScaleLen;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;  //_outerRadius / 2;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 2;
@@ -54,14 +54,14 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 void SurfaceTurbulence::InitWaveParam(void)
 {
 	waveParam._dt = 0.6e-2;
-	waveParam._waveSpeed = 0.5;
+	waveParam._waveSpeed = 16.0f;
 	waveParam._waveDamping = 0.15f;
-	waveParam._waveSeedFreq = 48.0;
-	waveParam._waveMaxAmplitude = maintenanceParam._coarseScaleLen;
-	waveParam._waveMaxFreq = 100;
-	waveParam._waveMaxSeedingAmplitude = 2 * maintenanceParam._coarseScaleLen; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._coarseScaleLen * 0.025; // any curvature higher than this value will seed waves
-	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._coarseScaleLen * 0.01;
+	waveParam._waveSeedFreq = 4.0f;
+	waveParam._waveMaxAmplitude = 0.25f;
+	waveParam._waveMaxFreq = 800;
+	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
+	waveParam._waveSeedingCurvatureThresholdCenter = 0.025; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdRadius = 0.01;
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
 
 	//waveParam._dt = 0.005f;
@@ -244,14 +244,19 @@ void SurfaceTurbulence::InsertFineParticles(void)
 
 void SurfaceTurbulence::DeleteFineParticles(void)
 {
+	//delete-> line delete error
 	DeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(),
+			_numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
+	//advection -> right to left delete error
 	AdvectionDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
+			_numFineParticles, _fluid->_numParticles, d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	ConstraintDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, _fluid->_numParticles,  d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
+			_numFineParticles, _fluid->_numParticles,  d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3;
@@ -300,6 +305,7 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 
 	SetHashTable_kernel();
 	InsertFineParticles();
+	SetHashTable_kernel();
 	DeleteFineParticles();
 }
 
@@ -598,9 +604,9 @@ void SurfaceTurbulence::drawFineParticles(void)
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		////////Curvature visualize
-		//REAL3 color = ScalarToColor(curvature * 1000);
-		//glColor3f(color.x, color.y, color.z);
+		//////Curvature visualize
+		REAL3 color = ScalarToColor(curvature * 1000);
+		glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);

@@ -43,7 +43,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 				uint indexZ = z + k;
 				if (indexX < 0 || indexY < 0 || indexZ < 0) continue;
 				
-				if (GetNumFluidParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0){
+				if (GetNumParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0){
 					nearSurface = true;
 					break;
 				}
@@ -62,7 +62,10 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 
 				bool valid = true;
 				int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._coarseRes);
-				FOR_NEIGHBOR(2) {
+
+				float radius = 2 * maintenanceParam._outerRadius;
+				int width = radius * maintenanceParam._coarseRes + 1;
+				FOR_NEIGHBOR(width) {
 					int3 neighGridPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 
 					uint neighHash = calcGridHash(neighGridPos, maintenanceParam._coarseRes);
@@ -788,7 +791,7 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	secondParticleGridIdx[idx] = idx;
 
-	REAL deleteRadius = (1.0 / 4.0) * (maintenanceParam._fineScaleLen);
+	REAL deleteRadius = (0.25) * (maintenanceParam._fineScaleLen);
 	REAL3 pos = finePos[idx];
 
 	int3 gridPos1 = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
@@ -827,13 +830,15 @@ __global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL
 	if (idx >= numFineParticles)
 		return;
 
-	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
+	REAL r = 2.0 * maintenanceParam._outerRadius;
 	REAL cellSize = 1.0/maintenanceParam._coarseRes;
 
 	REAL3 fPos = finePos[idx];
 	int3 gridPos = calcGridPos(fPos, cellSize);
 	int cnt = 0;
-	FOR_NEIGHBOR(2) {
+
+	int width = (r / cellSize) + 1;
+	FOR_NEIGHBOR(width) {
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
 		uint startIdx = cellStart[neighHash];

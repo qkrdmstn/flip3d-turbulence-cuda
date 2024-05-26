@@ -94,9 +94,9 @@ void FLIP3D_Cuda::PlaceObjects()
 	PlaceWalls();
 
 	//WaterDropTest();
-	DamBreakTest();
+	//DamBreakTest();
 	//RotateBoxesTest();
-	//MoveBoxTest();
+	MoveBoxTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -175,16 +175,16 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.02;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.1;
+	obj.c.y = 0.2;
 	obj.c.z = 0.5;
-	obj.r = 0.05;
+	obj.r = 0.1;
 	objects.push_back(obj);
 
 }
@@ -195,9 +195,9 @@ void FLIP3D_Cuda::DamBreakTest()
 
 	obj.type = FLUID;
 	obj.shape = BOX;
-	obj.p[0].x = 0.2;	obj.p[1].x = 0.3;
+	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
-	obj.p[0].z = 0.3;	obj.p[1].z = 0.7;
+	obj.p[0].z = 0.3;	obj.p[1].z = 0.8;
 	objects.push_back(obj);
 
 	obj.type = FLUID;
@@ -425,14 +425,17 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 
 void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 {
-	//d_Boxes.copyToHost(h_Boxes);
-	//LinearMovingBox_kernel(h_Boxes[0]);
-	////RotateMovingBox_kernel(h_Boxes[0], true);
-	////RotateMovingBox_kernel(h_Boxes[1], false);
-	//d_Boxes.copyFromHost(h_Boxes);
+	if (objects.size() != 0)
+	{
+		d_Boxes.copyToHost(h_Boxes);
+		LinearMovingBox_kernel(h_Boxes[0]);
+		//RotateMovingBox_kernel(h_Boxes[0], true);
+		//RotateMovingBox_kernel(h_Boxes[1], false);
+		d_Boxes.copyFromHost(h_Boxes);
 
-	//CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+		CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+			(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+	}
 }
 
 void FLIP3D_Cuda::SolvePICFLIP()
