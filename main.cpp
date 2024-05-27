@@ -29,6 +29,7 @@ int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
 
+bool advection = true;
 FLIPEngine* _engine;
 
 void Init(void)
@@ -36,7 +37,7 @@ void Init(void)
 	// 깊이값 사용 여부
 	glEnable(GL_DEPTH_TEST);
 	// 0.6e-2
-	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.6e-2);
+	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.005);
 }
 
 void Capture(char* filename, int width, int height)
@@ -75,7 +76,7 @@ void Update(void)
 #if SCREEN_CAPTURE
 		if (_frame <= 600 && _frame % 2 == 0)
 		{
-			string path = "image\\128\\Trans\\test1\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\64\\dam\\wave_0.6\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
@@ -89,7 +90,7 @@ void Update(void)
 			frame = 0;
 		}
 
-		_engine->simulation();
+		_engine->simulation(advection);
 
 		if (_frame == 600) {
 			exit(0);
@@ -222,6 +223,12 @@ void Keyboard(unsigned char key, int x, int y)
 		else
 			printf("Simulation Start\n");
 		break;
+	case 'c':
+		advection = !advection;
+		if (!advection)
+			printf("advection Pause\n");
+		else
+			printf("advection Start\n");
 	default:
 		break;
 	}

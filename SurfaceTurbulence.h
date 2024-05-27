@@ -18,7 +18,7 @@ struct WaveParam
 	REAL _waveSpeed = 8.0;
 	REAL _waveDamping = 0.0f;
 	REAL _waveSeedFreq = 4.0;
-	REAL _waveMaxAmplitude ;
+	REAL _waveMaxAmplitude;
 	REAL _waveMaxFreq = 400.0;
 	REAL _waveMaxSeedingAmplitude = 0.025;
 	REAL _waveSeedingCurvatureThresholdCenter;
@@ -34,6 +34,7 @@ struct MaintenanceParam
 	REAL _fineScaleLen;
 	REAL _outerRadius;
 	REAL _innerRadius;
+	REAL _normalRadius;
 
 	uint _fineRes;
 	uint _coarseRes;

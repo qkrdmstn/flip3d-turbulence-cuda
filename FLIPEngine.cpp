@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 128
+#define RES 64
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -11,9 +11,7 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_frame = 0u;
 
 	_fluid = new FLIP3D_Cuda(RES);
-#if TURBULENCE
 	_turbulence = new SurfaceTurbulence(_fluid, RES);
-#endif
 	_fluid->CopyToHost();
 
 #if SURFACERECONSTRUCTION
@@ -23,39 +21,49 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 #endif
 }
 
-void	FLIPEngine::simulation(void)
+void	FLIPEngine::simulation(bool advection)
 {
-
 	printf("-------------- Step %d --------------\n", _frame);
-	_fluid->SetHashTable_kernel();
-	_fluid->ComputeParticleDensity_kernel();
-	_fluid->ComputeExternalForce_kernel(_gravity, _dt);
-	_fluid->CollisionMovingBox_kernel(_dt);
+	if (advection || _frame == 0)
+	{
+		_fluid->SetHashTable_kernel();
+		_fluid->ComputeParticleDensity_kernel();
+		_fluid->ComputeExternalForce_kernel(_gravity, _dt);
+		_fluid->CollisionMovingBox_kernel(_dt);
 
-	_fluid->SolvePICFLIP();
+		_fluid->SolvePICFLIP();
 
-	_fluid->AdvectParticle_kernel(_dt);
+		_fluid->AdvectParticle_kernel(_dt);
 
-	_fluid->Correct_kernel(_dt);
+		_fluid->Correct_kernel(_dt);
 
 #if TURBULENCE
-	_turbulence->Advection_kernel();
+		_turbulence->Advection_kernel();
 
-	if (_frame == 0) {
-		for (int i = 0; i < 24; i++) {
-			_turbulence->SurfaceMaintenance();
-			if (i % 6 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 24.0);
-		}
+		if (_frame == 0)
+		{
+			int iter1 = 24;
+			for (int i = 0; i < iter1; i++)
+			{
+				_turbulence->SurfaceMaintenance();
+				if (i % 6 == 0)
+					printf("%.4f%\n", (float)(i + 1) / (float)iter1);
+			}
 
-	}
-	else {
-		for (int i = 0; i < 8; i++) {
-			_turbulence->SurfaceMaintenance();
-			if (i % 2 == 0)
-				printf("%.4f%\n", (float)(i + 1) / 8);
+		}
+		else
+		{
+			int iter2 = 8;
+			for (int i = 0; i < iter2; i++)
+			{
+				_turbulence->SurfaceMaintenance();
+				if (i % 2 == 0)
+					printf("%.4f%\n", (float)(i + 1) / (float)iter2);
+			}
 		}
 	}
+
+
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
 	_turbulence->WaveSimulation_kernel(_frame);
 #endif

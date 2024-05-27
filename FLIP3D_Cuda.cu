@@ -94,9 +94,9 @@ void FLIP3D_Cuda::PlaceObjects()
 	PlaceWalls();
 
 	//WaterDropTest();
-	//DamBreakTest();
+	DamBreakTest();
 	//RotateBoxesTest();
-	MoveBoxTest();
+	///MoveBoxTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -175,16 +175,16 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.12;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.2;
+	obj.c.y = 0.5;
 	obj.c.z = 0.5;
-	obj.r = 0.1;
+	obj.r = 0.06;
 	objects.push_back(obj);
 
 }
@@ -366,11 +366,16 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 		}
 	}
 
-	for (int i = 0; i < h_Boxes.size(); i++)
+	if (type == FLUID)
 	{
-		for (auto box : h_Boxes) {
-			if (getDist(box, make_REAL3(x, y, z)) < 0.0f) {
-				inside_obj = NULL;
+		for (int i = 0; i < h_Boxes.size(); i++)
+		{
+			for (auto box : h_Boxes)
+			{
+				if (getDist(box, make_REAL3(x, y, z)) < 0.0f)
+				{
+					inside_obj = NULL;
+				}
 			}
 		}
 	}
@@ -427,14 +432,14 @@ void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 {
 	if (objects.size() != 0)
 	{
-		d_Boxes.copyToHost(h_Boxes);
-		LinearMovingBox_kernel(h_Boxes[0]);
-		//RotateMovingBox_kernel(h_Boxes[0], true);
-		//RotateMovingBox_kernel(h_Boxes[1], false);
-		d_Boxes.copyFromHost(h_Boxes);
+		//d_Boxes.copyToHost(h_Boxes);
+		//LinearMovingBox_kernel(h_Boxes[0]);
+		////RotateMovingBox_kernel(h_Boxes[0], true);
+		////RotateMovingBox_kernel(h_Boxes[1], false);
+		//d_Boxes.copyFromHost(h_Boxes);
 
-		CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-			(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+		//CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		//	(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
 	}
 }
 
@@ -1042,7 +1047,7 @@ void FLIP3D_Cuda::draw(void)
 		//}
 
 		if (type == WALL ) {
-			continue;
+			//continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
 		else
