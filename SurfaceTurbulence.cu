@@ -36,7 +36,7 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.6; 
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 1; 
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0; 
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;

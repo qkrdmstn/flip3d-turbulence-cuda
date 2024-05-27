@@ -1,8 +1,8 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 128
 #define RENDERRES 256
-#define TURBULENCE 1
+#define TURBULENCE 0
 #define SURFACERECONSTRUCTION 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
@@ -16,7 +16,6 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 
 #if SURFACERECONSTRUCTION
 	_MC = new MarchingCubes_CUDA();
-	//MC
 	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
 #endif
 }
@@ -66,6 +65,9 @@ void	FLIPEngine::simulation(bool advection)
 
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
 	_turbulence->WaveSimulation_kernel(_frame);
+
+#else
+	}
 #endif
 
 #if SURFACERECONSTRUCTION
