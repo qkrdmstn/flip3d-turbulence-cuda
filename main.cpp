@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -74,9 +74,9 @@ void Update(void)
 {
 	if (_simulation) {
 #if SCREEN_CAPTURE
-		if (_frame <= 600 && _frame % 2 == 0)
+		if (_frame <= 1000 && _frame % 2 == 0)
 		{
-			string path = "image\\128\\trans\\none\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\capture\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
@@ -92,9 +92,9 @@ void Update(void)
 
 		_engine->simulation(advection);
 
-		if (_frame == 600) {
-			exit(0);
-		}
+		//if (_frame == 600) {
+		//	exit(0);
+		//}
 		_frame++;
 	}
 	glutPostRedisplay();

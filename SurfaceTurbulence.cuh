@@ -726,7 +726,7 @@ __device__ BOOL IsInDomain(REAL3 pos)
 }
 
 __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles,
-	REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+	REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -736,7 +736,13 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	finePos[insertIdx] = make_REAL3(-1, -1, -1);
 	secondParticleGridIdx[insertIdx] = numCoarseParticles * PER_PARTICLE;
 
-	//tam
+	//waveInterpolate
+	REAL seed = 0.0f;
+	REAL seedAmplitude = 0.0f;
+	REAL waveHeight = 0.0f;
+	REAL waveDtHeight = 0.0f;
+
+	//radius
 	REAL tangentRadius = 3.0 * maintenanceParam._fineScaleLen;
 	REAL insertRadius = 2.0 * maintenanceParam._fineScaleLen;
 
@@ -769,6 +775,11 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 				REAL w = NeighborFineWeight(tangentRadius, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 				displacementTangent += dt * w;
+
+				seed += w * waveSeed[sortedIdx];
+				seedAmplitude += w * waveSeedAmplitude[sortedIdx];
+				waveHeight += w * waveH[sortedIdx];
+				waveDtHeight += w * waveDtH[sortedIdx];
 			}
 		}
 	}END_FOR;
@@ -807,14 +818,21 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 		finePos[insertIdx] = center;
 		secondParticleGridIdx[insertIdx] = insertIdx;
 
+		////wave init
+		//waveSeed[insertIdx] = seed;
+		//waveSeedAmplitude[insertIdx] = seedAmplitude;
+		//waveH[insertIdx] = waveHeight;
+		//waveDtH[insertIdx] = waveDtHeight;
+
 		//wave init
+		waveSeed[insertIdx] = 0.0f;
 		waveSeedAmplitude[insertIdx] = 0.0f;
 		waveH[insertIdx] = 0.0f;
 		waveDtH[insertIdx] = 0.0f;
 	}
 }
 
-__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+__global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -848,6 +866,7 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 					secondParticleGridIdx[sortedIdx] = numCoarseParticles * PER_PARTICLE;
 					finePos[sortedIdx] = make_REAL3(-1, -1, -1);
 
+					waveSeed[sortedIdx] = 0.0f;
 					waveSeedAmplitude[sortedIdx] = 0.0f;
 					waveH[sortedIdx] = 0.0f;
 					waveDtH[sortedIdx] = 0.0f;
@@ -857,7 +876,7 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	}END_FOR;
 }
 
-__global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+__global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -901,14 +920,14 @@ __global__ void AdvectionDeleteFineParticles_D(uint* secondParticleGridIdx, REAL
 		secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
 		finePos[idx] = make_REAL3(-1, -1, -1);
 
-
+		waveSeed[idx] = 0.0f;
 		waveSeedAmplitude[idx] = 0.0f;
 		waveH[idx] = 0.0f;
 		waveDtH[idx] = 0.0f;
 	}
 }
 
-__global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+__global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numFineParticles, uint numCoarseParticles, REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -924,6 +943,7 @@ __global__ void ConstraintDeleteFineParticles_D(uint* secondParticleGridIdx, REA
 		secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
 		finePos[idx] = make_REAL3(-1, -1, -1);
 
+		waveSeed[idx] = 0.0f;
 		waveSeedAmplitude[idx] = 0.0f;
 		waveH[idx] = 0.0f;
 		waveDtH[idx] = 0.0f;
@@ -1018,7 +1038,17 @@ __device__ REAL SmoothStep(REAL left, REAL right, REAL val)
 	return x * x * (3.0 - 2.0 * x);
 }
 
-__global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed, REAL* waveH, uint numFineParticles, uint step, WaveParam waveParam)
+__global__ void AddSeed_D(REAL* waveH, REAL* seed, uint numFineParticles)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numFineParticles)
+		return;
+
+	//seed 더하기
+	waveH[idx] += seed[idx];
+}
+
+__global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed, uint numFineParticles, uint step, WaveParam waveParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -1036,8 +1066,7 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 	//// source values for display (not used after this point anyway)
 	curvature[idx] = (source >= 0) ? 1 : 0;
 
-	//seed 더하기
-	waveH[idx] += seed[idx];
+
 }
 
 __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, MaintenanceParam maintenanceParam)
@@ -1198,6 +1227,8 @@ __global__ void SetDisplayParticles_D(REAL3* displayPos, REAL3* finePos, REAL3* 
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
-	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx];
+	if(idx == 1255)
+		printf("normal: %f H: %f\n", Length(surfaceNormal[idx]), waveH[idx]);
+	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx] * 1000;
 }
 #endif

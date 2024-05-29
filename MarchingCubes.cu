@@ -648,8 +648,8 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 					REAL3 pos2 = particles[sortedIdx];
 					uint type2 = d_TotalType[sortedIdx];
 					REAL3 relPos = pos - pos2;
-					if (Length(relPos) > width * cellSize)
-						continue;
+					//if (Length(relPos) > width * cellSize)
+					//	continue;
 					if (type2 == WALL) {
 						//float dist = hypotLength(relPos);
 						//if (dist < density / res.x) {

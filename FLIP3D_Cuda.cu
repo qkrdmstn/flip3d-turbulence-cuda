@@ -93,10 +93,10 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	//WaterDropTest();
+	WaterDropTest();
 	//DamBreakTest();
 	//RotateBoxesTest();
-	MoveBoxTest();
+	//MoveBoxTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -175,16 +175,24 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.12;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.4;
+	//obj.c.y = 0.25;
+	//obj.c.z = 0.5;
+	//obj.r = 0.05;
+	//objects.push_back(obj);
+
 	obj.type = FLUID;
 	obj.shape = SPHERE;
-	obj.c.x = 0.5;
-	obj.c.y = 0.5;
+	obj.c.x = 0.6;
+	obj.c.y = 0.12;
 	obj.c.z = 0.5;
-	obj.r = 0.06;
+	obj.r = 0.05;
 	objects.push_back(obj);
 
 }
@@ -431,8 +439,8 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 {
 	d_Boxes.copyToHost(h_Boxes);
-	LinearMovingBox_kernel(h_Boxes[0]);
-	//RotateMovingBox_kernel(h_Boxes[0], true);
+	//LinearMovingBox_kernel(h_Boxes[0]);
+	RotateMovingBox_kernel(h_Boxes[0], true);
 	//RotateMovingBox_kernel(h_Boxes[1], false);
 	d_Boxes.copyFromHost(h_Boxes);
 
@@ -1044,7 +1052,7 @@ void FLIP3D_Cuda::draw(void)
 		//}
 
 		if (type == WALL ) {
-			//continue;
+			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
 		else

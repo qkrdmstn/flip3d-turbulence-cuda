@@ -41,7 +41,7 @@ struct MaintenanceParam
 };
 
 
-#define SURFACE_DENSITY 10.0
+#define SURFACE_DENSITY 20
 #define PER_PARTICLE 140
 
 class SurfaceTurbulence
@@ -138,6 +138,7 @@ public: //Surface Maintenance
 	void SurfaceMaintenance(void);
 
 public: //Wave Simulation func
+	void AddSeed_kernel(void);
 	void ComputeCurvature_kernel(void);
 	void SeedWave_kernel(int step);
 	void ComputeWaveNormal_kernel(void);
