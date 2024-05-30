@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -239,7 +239,7 @@ void ParamSetting(bool flag)
 		case 0:
 		{
 			float scale = _engine->_turbulence->waveParam._waveSpeed / outerRadius;
-			scale++;
+			scale += 0.1f;
 			_engine->_turbulence->waveParam._waveSpeed = scale * outerRadius;
 			printf("_waveSpeed: %f\n", scale);
 			break;
@@ -294,10 +294,10 @@ void ParamSetting(bool flag)
 		case 0:
 		{
 			float scale = _engine->_turbulence->waveParam._waveSpeed / outerRadius;
-			scale++;
+			scale -= 0.1f;
 			_engine->_turbulence->waveParam._waveSpeed = scale * outerRadius;
-			break;
 			printf("_waveSpeed: %f\n", scale);
+			break;
 		}
 		case 1:
 		{
