@@ -8,15 +8,16 @@
 #include <cmath>
 #include<stdio.h>
 
-__device__ BOOL IsInDomain(REAL3 pos)
+__device__ BOOL IsInDomain(REAL3 pos, MaintenanceParam maintenanceParam)
 {
 	REAL x = pos.x;
 	REAL y = pos.y;
 	REAL z = pos.z;
+	REAL wallThick = 1.0 / maintenanceParam._coarseRes;
 
-	if (0.0 <= x && x <= 1.0 &&
-		0.0 <= y && y <= 1.0 &&
-		0.0 <= z && z <= 1.0)
+	if (0.0 + wallThick <= x && x <= 1.0 - wallThick &&
+		0.0 + wallThick <= y && y <= 1.0 - wallThick &&
+		0.0 + wallThick <= z && z <= 1.0 - wallThick)
 		return true;
 	else
 		return false;
@@ -61,7 +62,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 				uint indexZ = z + k;
 				if (indexX < 0 || indexY < 0 || indexZ < 0) continue;
 
-				if (GetNumFluidParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0)
+				if (GetNumParticleAt(indexX, indexY, indexZ, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam._coarseRes) == 0)
 				{
 					nearSurface = true;
 					break;
@@ -105,8 +106,8 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 							REAL d2 = LengthSquared(position - neighborPos);
 							if (d2 > radius * radius)
 								continue;
-							if (coarseType[sortedIdx] != FLUID)
-								continue;
+							//if (coarseType[sortedIdx] != FLUID)
+							//	continue;
 
 							if (idx != sortedIdx && d2 < outerRadius2)
 							{
@@ -140,13 +141,13 @@ __global__ void StateCheck_D(REAL3* finePos, uint* particleGridIdx, uint* stateD
 	for (int i = 0; i < PER_PARTICLE; i++)
 	{
 		int index = idx * PER_PARTICLE + i;
-		if (finePos[index].x > 0 && finePos[index].y > 0 && finePos[index].z > 0)
+		if (finePos[index].x < -0.5 && finePos[index].y < -0.5 && finePos[index].z < -0.5)
 		{
-			stateData[index] = 1;
+			stateData[index] = 0;
 		}
 		else
 		{
-			stateData[index] = 0;
+			stateData[index] = 1;
 		}
 	}
 }
@@ -275,6 +276,8 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 
 	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 	REAL3 fPos = finePos[idx];
+
+
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
 	REAL3 displacement = make_REAL3(0, 0, 0);
@@ -309,6 +312,9 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 
 	finePos[idx] += displacement;
 	flag[idx] = false;
+
+	//if (!IsInDomain(fPos))
+	//	printf("%f %f %f !!!!\n", fPos.x, fPos.y, fPos.z);
 }
 
 
@@ -638,13 +644,25 @@ __global__ void CopyToTempPos_D(REAL3* finePos, REAL3* fineTempPos, uint numFine
 	fineTempPos[idx] = finePos[idx];
 }
 
-__global__ void CopyToPos_D(REAL3* finePos, REAL3* fineTempPos, uint numFineParticles)
+__global__ void CopyToPos_D(REAL3* finePos, REAL3* fineTempPos, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
-	finePos[idx] = fineTempPos[idx];
+	//clamp
+	REAL3 result = fineTempPos[idx];
+	REAL x = result.x;
+	REAL y = result.y;
+	REAL z = result.z;
+
+	REAL wallThick = 1.0 / maintenanceParam._coarseRes;
+	x = fmax(0 + wallThick, fmin(x, 1 - wallThick));
+	y = fmax(0 + wallThick, fmin(y, 1 - wallThick));
+	z = fmax(0 + wallThick, fmin(z, 1 - wallThick));
+	result = make_REAL3(x, y, z);
+
+	finePos[idx] = result;
 }
 
 __global__ void NormalRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, MaintenanceParam maintenanceParam)
@@ -738,14 +756,13 @@ __global__ void TangentRegularization_D(REAL3* finePos, REAL3* fineTempPos, REAL
 	}END_FOR;
 	displacement *= 0.5 * maintenanceParam._fineScaleLen;
 	fineTempPos[idx] += displacement;
-
 }
 
 
 //FineParticle Insert/Delete
 
-__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles,
-	REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
+__global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePos, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, 
+									REAL* waveSeed, REAL* waveSeedAmplitude, REAL* waveH, REAL* waveDtH, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
@@ -805,8 +822,7 @@ __global__ void InsertFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 	Normalize(displacementTangent);
 
 	REAL3 center = pos + (displacementTangent * insertRadius);
-	if (!IsInDomain(center)) return;
-
+	if (!IsInDomain(center, maintenanceParam)) return;
 
 	int cnt = 0;
 
@@ -859,14 +875,27 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 
 	secondParticleGridIdx[idx] = idx;
 
-	REAL deleteRadius = (0.25) * (maintenanceParam._fineScaleLen);
+	REAL deleteRadius = (0.67) * (maintenanceParam._fineScaleLen);
 	REAL3 pos = finePos[idx];
 
-	int3 gridPos1 = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
-	int width1 = (deleteRadius * maintenanceParam._fineRes) + 1;
-	FOR_NEIGHBOR(width1)
+	if (!IsInDomain(pos, maintenanceParam))
 	{
-		int3 neighborPos = make_int3(gridPos1.x + dx, gridPos1.y + dy, gridPos1.z + dz);
+		//delete
+		secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
+		finePos[idx] = make_REAL3(-1, -1, -1);
+
+		waveSeed[idx] = 0.0f;
+		waveSeedAmplitude[idx] = 0.0f;
+		waveH[idx] = 0.0f;
+		waveDtH[idx] = 0.0f;
+		return;
+	}
+
+	int3 gridPos = calcGridPos(pos, 1.0 / maintenanceParam._fineRes);
+	int width = (deleteRadius * maintenanceParam._fineRes) + 1;
+	FOR_NEIGHBOR(width)
+	{
+		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 		uint neighHash = calcGridHash(neighborPos, maintenanceParam._fineRes);
 		uint startIdx = fineCellStart[neighHash];
 
@@ -879,16 +908,17 @@ __global__ void DeleteFineParticles_D(uint* secondParticleGridIdx, REAL3* finePo
 				if (sortedIdx == idx) continue;
 
 				REAL3 pos2 = finePos[sortedIdx];
-				if (LengthSquared(pos2 - pos) <= deleteRadius * deleteRadius || !IsInDomain(pos))
+				if (LengthSquared(pos2 - pos) <= deleteRadius * deleteRadius)
 				{
 					//delete
-					secondParticleGridIdx[sortedIdx] = numCoarseParticles * PER_PARTICLE;
-					finePos[sortedIdx] = make_REAL3(-1, -1, -1);
+					secondParticleGridIdx[idx] = numCoarseParticles * PER_PARTICLE;
+					finePos[idx] = make_REAL3(-1, -1, -1);
 
-					waveSeed[sortedIdx] = 0.0f;
-					waveSeedAmplitude[sortedIdx] = 0.0f;
-					waveH[sortedIdx] = 0.0f;
-					waveDtH[sortedIdx] = 0.0f;
+					waveSeed[idx] = 0.0f;
+					waveSeedAmplitude[idx] = 0.0f;
+					waveH[idx] = 0.0f;
+					waveDtH[idx] = 0.0f;
+					return;
 				}
 			}
 		}

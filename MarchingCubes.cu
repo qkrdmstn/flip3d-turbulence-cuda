@@ -558,15 +558,15 @@ void CopyToTotalParticles2(REAL3* totalParticles, uint* d_TotalType, REAL3* part
 	if (idx >= numParticles)
 		return;
 
-	uint index = idx /*+ numFlipParticles*/;
+	uint index = idx + numFlipParticles;
 	totalParticles[index] = particles[idx];
 	d_TotalType[index] = FLUID;
 }
 
 void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbulence, REAL3* d_TotalParticles, uint* d_Type, uint _numTotalParticles)
 {
-	//CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
+	CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
 
 	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 	//	(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);

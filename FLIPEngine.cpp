@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 32
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -62,9 +62,9 @@ void	FLIPEngine::simulation(bool advection)
 		}
 	}
 
-
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
-	//_turbulence->WaveSimulation_kernel(_frame);
+	if(_frame != 0)
+		_turbulence->WaveSimulation_kernel(_frame);
 
 #else
 	}

@@ -36,7 +36,7 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
 	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; 
-	//maintenanceParam._outerRadius = 0.0005;
+	//maintenanceParam._outerRadius = 0.0075;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -101,12 +101,8 @@ void SurfaceTurbulence::Advection_kernel(void)
 
 void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 {
-	Dvector<uint> idx;
-	idx.resize(2000);
-	idx.memset(0);
 	SurfaceConstraint_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, maintenanceParam);
-	idx.free();
 }
 
 void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
@@ -154,7 +150,6 @@ void SurfaceTurbulence::TangentRegularization_kernel(void)
 
 	TangentRegularization_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_Pos(), d_TempPos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
-
 }
 
 void SurfaceTurbulence::Regularization_kernel(void)
@@ -168,7 +163,7 @@ void SurfaceTurbulence::Regularization_kernel(void)
 	TangentRegularization_kernel();
 
 	CopyToPos_D << < divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Pos(), d_TempPos(), _numFineParticles);
+		(d_Pos(), d_TempPos(), _numFineParticles, maintenanceParam);
 }
 
 void SurfaceTurbulence::InsertFineParticles(void)
@@ -185,9 +180,9 @@ void SurfaceTurbulence::InsertFineParticles(void)
 	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(tangentRadius, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
 
-	//InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles,
-	//		d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+	InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles,
+			d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3, d_key4;
@@ -242,7 +237,6 @@ void SurfaceTurbulence::DeleteFineParticles(void)
 		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(),
 			_numFineParticles, _fluid->_numParticles, d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
-	//advection -> right to left delete error
 	AdvectionDeleteFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_ParticleGridIndex(), d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
 			_numFineParticles, _fluid->_numParticles, d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
@@ -305,7 +299,7 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 
 	SetHashTable_kernel();
 	InsertFineParticles();
-	//DeleteFineParticles();
+	DeleteFineParticles();
 }
 
 void  SurfaceTurbulence::AddSeed_kernel(void)
@@ -379,8 +373,8 @@ void SurfaceTurbulence::WaveSimulation_kernel(int step)
 {
 
 	ComputeCurvature_kernel();
-	SeedWave_kernel(step);
-	AddSeed_kernel();
+	//SeedWave_kernel(step);
+	//AddSeed_kernel();
 	//ComputeWaveNormal_kernel();
 	//ComputeLaplacian_kernel();
 	//EvolveWave_kernel();
