@@ -36,7 +36,6 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
 	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; 
-	//maintenanceParam._outerRadius = 0.0075;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -54,7 +53,7 @@ void SurfaceTurbulence::InitWaveParam(void)
 	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2;
 	waveParam._waveMaxFreq = 400;
 	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.05; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
 }
@@ -322,15 +321,6 @@ void  SurfaceTurbulence::ComputeCurvature_kernel(void)
 
 void SurfaceTurbulence::SeedWave_kernel(int step)
 {
-	SetHashTable_kernel();
-
-	REAL r = 3.0 * maintenanceParam._fineScaleLen;
-	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
-
-	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
-
 	SeedWave_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_Curvature(), d_WaveSeedAmp(), d_Seed(), _numFineParticles, step, waveParam);
 }
@@ -371,18 +361,15 @@ void SurfaceTurbulence::EvolveWave_kernel(void)
 
 void SurfaceTurbulence::WaveSimulation_kernel(int step)
 {
-
+	AddSeed_kernel();
+	ComputeWaveNormal_kernel();
+	ComputeLaplacian_kernel();
+	EvolveWave_kernel();
 	ComputeCurvature_kernel();
-	//SeedWave_kernel(step);
-	//AddSeed_kernel();
-	//ComputeWaveNormal_kernel();
-	//ComputeLaplacian_kernel();
-	//EvolveWave_kernel();
+	SeedWave_kernel(step);
 	
 	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
-
-
 }
 
 void SurfaceTurbulence::SetHashTable_kernel(void)
@@ -606,9 +593,9 @@ void SurfaceTurbulence::drawFineParticles(void)
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		////////Curvature visualize
-		//REAL3 color = ScalarToColor(curvature * 1000);
-		//glColor3f(color.x, color.y, color.z);
+		//////Curvature visualize
+		REAL3 color = ScalarToColor(curvature * 1000);
+		glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);
@@ -644,11 +631,12 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		REAL3 position = h_DisplayPos[i];
 		REAL waveDt = h_WaveDtH[i];
 		REAL waveH = h_WaveH[i];
+		REAL seed = h_Seed[i];
 
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		////WaveH visualize
+		//// visualize
 		REAL3 color = ScalarToColor(waveH * 1000);
 		glColor3f(color.x, color.y, color.z);
 

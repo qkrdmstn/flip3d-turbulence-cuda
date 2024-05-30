@@ -25,6 +25,7 @@
 
 #define PI          3.141592
 
+#define GRIDRENDER 0
 using namespace std;
 
 struct Object 

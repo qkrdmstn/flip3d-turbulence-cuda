@@ -190,9 +190,9 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.32;
+	obj.c.y = 0.1;
 	obj.c.z = 0.5;
-	obj.r = 0.15;
+	obj.r = 0.05;
 	objects.push_back(obj);
 
 }
@@ -1077,6 +1077,7 @@ void FLIP3D_Cuda::draw(void)
 	}
 	//printf("cnt: %d\n", cnt);
 
+#if GRIDRENDER
 	for (uint i = 0u; i < _gridRes * _gridRes * _gridRes; i++)
 	{
 		REAL3 position = h_gridPos[i];
@@ -1197,6 +1198,7 @@ void FLIP3D_Cuda::draw(void)
 
 #endif
 	}
+#endif
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();
