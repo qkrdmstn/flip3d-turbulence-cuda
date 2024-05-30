@@ -1,9 +1,9 @@
 #include "FLIPEngine.h"
 
-#define RES 128
+#define RES 64
 #define RENDERRES 256
 #define TURBULENCE 1
-#define SURFACERECONSTRUCTION 0
+#define SURFACERECONSTRUCTION 1
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;

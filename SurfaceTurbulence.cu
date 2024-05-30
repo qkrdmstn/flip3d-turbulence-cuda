@@ -101,9 +101,12 @@ void SurfaceTurbulence::Advection_kernel(void)
 
 void SurfaceTurbulence::SurfaceConstraint_kernel(void)
 {
+	Dvector<uint> idx;
+	idx.resize(2000);
+	idx.memset(0);
 	SurfaceConstraint_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, d_SurfaceNormal(), maintenanceParam);
-	
+		(this->d_Pos(), _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), _numFineParticles, maintenanceParam);
+	idx.free();
 }
 
 void SurfaceTurbulence::ComputeSurfaceNormal_kernel(void)
@@ -182,9 +185,9 @@ void SurfaceTurbulence::InsertFineParticles(void)
 	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(tangentRadius, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
 
-	InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles,
-			d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+	//InsertFineParticles_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(d_ParticleGridIndex(), d_Pos(), d_SurfaceNormal(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, _fluid->_numParticles,
+	//		d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3, d_key4;
@@ -297,11 +300,11 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 {
 	SurfaceConstraint_kernel();
 
-	//SetHashTable_kernel();
-	//Regularization_kernel();
+	SetHashTable_kernel();
+	Regularization_kernel();
 
-	//SetHashTable_kernel();
-	//InsertFineParticles();
+	SetHashTable_kernel();
+	InsertFineParticles();
 	//DeleteFineParticles();
 }
 

@@ -1040,23 +1040,23 @@ void FLIP3D_Cuda::draw(void)
 		uint type = h_Type[i];
 		BOOL flag = h_Flag[i];
 
-		//if (h_Flag[i]) {
-		//	//glPointSize(3.0);
-		//	glColor3f(1.0f, 0.0f, 0.0f);
-		//}
-		//else
-		//{
-		//	//glPointSize(1.0);
-		//	//continue;
-		//	glColor3f(0.0f, 0.0f, 1.0f);
-		//}
+		if (h_Flag[i]) {
+			//glPointSize(3.0);
+			glColor3f(1.0f, 0.0f, 0.0f);
+		}
+		else
+		{
+			//glPointSize(1.0);
+			//continue;
+			glColor3f(0.0f, 0.0f, 1.0f);
+		}
 
 		if (type == WALL ) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		else
-			glColor3f(0.0f, 1.0f, 1.0f);
+		//else
+		//	glColor3f(0.0f, 1.0f, 1.0f);
 		////glColor3f(1.0, 1.0, 1.0);
 		
 		////////////cout << h_Dens[i] << endl;
