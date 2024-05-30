@@ -93,8 +93,8 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
-	//DamBreakTest();
+	//WaterDropTest();
+	DamBreakTest();
 	//RotateBoxesTest();
 	//MoveBoxTest();
 }

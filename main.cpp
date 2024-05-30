@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -22,8 +22,8 @@ bool _simulation = false;
 
 bool _fluidFlag = false;
 bool _turbulenceDisplayFlag = false;
-bool _turbulenceBaseFlag = false;
-bool _surfaceReconstructionFlag = true;
+bool _turbulenceBaseFlag = true;
+bool _surfaceReconstructionFlag = false;
 
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
@@ -145,11 +145,18 @@ void Draw(void)
 	glDisable(GL_LIGHTING);
 
 	char text[100];
-	sprintf(text, "Frame: %d", _frame);
-	DrawText(10.0f, 760.0f, text);
 
 	sprintf(text, "FPS: %f", fps);
 	DrawText(10.0f, 780.0f, text);
+
+	sprintf(text, "Frame: %d", _frame);
+	DrawText(10.0f, 760.0f, text);
+
+	sprintf(text, "FLIP Particles: %d", _engine->_fluid->_numParticles);
+	DrawText(10.0f, 740.0f, text);
+
+	sprintf(text, "Turbulence Particles: %d", _engine->_turbulence->_numFineParticles);
+	DrawText(10.0f, 720.0f, text);
 }
 
 void Display(void)

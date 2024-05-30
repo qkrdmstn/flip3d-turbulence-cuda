@@ -346,8 +346,11 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* coarseTy
 	if (f > 1.0f) f = 1.0f;
 
 	f = (sqrt(-log(f) / a) - r) / (R - r);
-	if (f > 2.0)
-		f = 2.0f;
+	if (f > 10.0)
+	{
+		printf("levelSet %f!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", f);
+		//f = 2.0f;
+	}
 	return f;
 }
 

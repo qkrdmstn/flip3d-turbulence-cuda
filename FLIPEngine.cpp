@@ -1,9 +1,9 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 128
 #define RENDERRES 256
 #define TURBULENCE 1
-#define SURFACERECONSTRUCTION 1
+#define SURFACERECONSTRUCTION 0
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
@@ -52,7 +52,7 @@ void	FLIPEngine::simulation(bool advection)
 		}
 		else
 		{
-			int iter2 = 8;
+			int iter2 = 4;
 			for (int i = 0; i < iter2; i++)
 			{
 				_turbulence->SurfaceMaintenance();
@@ -64,7 +64,7 @@ void	FLIPEngine::simulation(bool advection)
 
 
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
-	_turbulence->WaveSimulation_kernel(_frame);
+	//_turbulence->WaveSimulation_kernel(_frame);
 
 #else
 	}

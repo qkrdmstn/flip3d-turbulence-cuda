@@ -35,8 +35,8 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	//maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.8; 
-	maintenanceParam._outerRadius = 0.0005;
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; 
+	//maintenanceParam._outerRadius = 0.0005;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -297,12 +297,12 @@ void SurfaceTurbulence::SurfaceMaintenance(void)
 {
 	SurfaceConstraint_kernel();
 
-	SetHashTable_kernel();
-	Regularization_kernel();
+	//SetHashTable_kernel();
+	//Regularization_kernel();
 
-	SetHashTable_kernel();
-	InsertFineParticles();
-	DeleteFineParticles();
+	//SetHashTable_kernel();
+	//InsertFineParticles();
+	//DeleteFineParticles();
 }
 
 void  SurfaceTurbulence::AddSeed_kernel(void)
@@ -378,9 +378,9 @@ void SurfaceTurbulence::WaveSimulation_kernel(int step)
 	ComputeCurvature_kernel();
 	SeedWave_kernel(step);
 	AddSeed_kernel();
-	ComputeWaveNormal_kernel();
-	ComputeLaplacian_kernel();
-	EvolveWave_kernel();
+	//ComputeWaveNormal_kernel();
+	//ComputeLaplacian_kernel();
+	//EvolveWave_kernel();
 	
 	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
@@ -609,9 +609,9 @@ void SurfaceTurbulence::drawFineParticles(void)
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		//////Curvature visualize
-		REAL3 color = ScalarToColor(curvature * 1000);
-		glColor3f(color.x, color.y, color.z);
+		////////Curvature visualize
+		//REAL3 color = ScalarToColor(curvature * 1000);
+		//glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);

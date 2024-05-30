@@ -558,18 +558,21 @@ void CopyToTotalParticles2(REAL3* totalParticles, uint* d_TotalType, REAL3* part
 	if (idx >= numParticles)
 		return;
 
-	uint index = idx + numFlipParticles;
+	uint index = idx /*+ numFlipParticles*/;
 	totalParticles[index] = particles[idx];
 	d_TotalType[index] = FLUID;
 }
 
 void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbulence, REAL3* d_TotalParticles, uint* d_Type, uint _numTotalParticles)
 {
-	CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
+	//CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
+
+	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 
 	CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
+		(d_TotalParticles, d_Type, _turbulence->d_Pos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 }
 
 void CalculateHash_kernel(uint* d_GridHash, uint* d_GridIdx, REAL3* d_TotalParticles, uint res, uint _numTotalParticles)
@@ -648,8 +651,8 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 					REAL3 pos2 = particles[sortedIdx];
 					uint type2 = d_TotalType[sortedIdx];
 					REAL3 relPos = pos - pos2;
-					//if (Length(relPos) > width * cellSize)
-					//	continue;
+					if (Length(relPos) > width * cellSize)
+						continue;
 					if (type2 == WALL) {
 						//float dist = hypotLength(relPos);
 						//if (dist < density / res.x) {
