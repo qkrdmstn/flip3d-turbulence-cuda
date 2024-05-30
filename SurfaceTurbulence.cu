@@ -33,10 +33,10 @@ SurfaceTurbulence:: ~SurfaceTurbulence()
 void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 {
 	maintenanceParam._coarseRes = gridRes;
-	maintenanceParam._coarseScaleLen = 1.0 / gridRes;
+	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
 	//maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.8; 
-	maintenanceParam._outerRadius = 0.0075;
+	maintenanceParam._outerRadius = 0.0005;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -48,13 +48,13 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 void SurfaceTurbulence::InitWaveParam(void)
 {
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 20.0f;
-	waveParam._waveDamping = 0.8f;
-	waveParam._waveSeedFreq = 2;
-	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 0.25;
+	waveParam._waveSpeed = maintenanceParam._outerRadius * 40.f;
+	waveParam._waveDamping = 0.9f;
+	waveParam._waveSeedFreq = 400;
+	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2;
 	waveParam._waveMaxFreq = 400;
-	waveParam._waveMaxSeedingAmplitude = 0.8; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.025; // any curvature higher than this value will seed waves
+	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
 }
@@ -652,7 +652,7 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		glColor3f(0.0f, 1.0f, 1.0f);
 
 		////WaveH visualize
-		REAL3 color = ScalarToColor(waveH * 5000);
+		REAL3 color = ScalarToColor(waveH * 1000);
 		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);

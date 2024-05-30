@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소

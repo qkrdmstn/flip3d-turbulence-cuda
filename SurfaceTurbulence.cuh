@@ -1038,16 +1038,6 @@ __device__ REAL SmoothStep(REAL left, REAL right, REAL val)
 	return x * x * (3.0 - 2.0 * x);
 }
 
-__global__ void AddSeed_D(REAL* waveH, REAL* seed, uint numFineParticles)
-{
-	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
-	if (idx >= numFineParticles)
-		return;
-
-	//seed 더하기
-	waveH[idx] += seed[idx];
-}
-
 __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed, uint numFineParticles, uint step, WaveParam waveParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -1067,6 +1057,16 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 	curvature[idx] = (source >= 0) ? 1 : 0;
 
 
+}
+
+__global__ void AddSeed_D(REAL* waveH, REAL* seed, uint numFineParticles)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numFineParticles)
+		return;
+
+	//seed 더하기
+	waveH[idx] += seed[idx];
 }
 
 __global__ void ComputeWaveNormal_D(REAL3* finePos, REAL* waveH, REAL3* waveNormal, REAL3* surfaceNormal, REAL* fineKernelDens, REAL* fineWeightSum, uint* fineGridIdx, uint* fineCellStart, uint* fineCellEnd, uint numFineParticles, uint numCoarseParticles, MaintenanceParam maintenanceParam)
@@ -1227,8 +1227,7 @@ __global__ void SetDisplayParticles_D(REAL3* displayPos, REAL3* finePos, REAL3* 
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
-	if(idx == 1255)
-		printf("normal: %f H: %f\n", Length(surfaceNormal[idx]), waveH[idx]);
-	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx] * 1000;
+
+	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx];
 }
 #endif

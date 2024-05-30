@@ -189,10 +189,10 @@ void FLIP3D_Cuda::WaterDropTest()
 
 	obj.type = FLUID;
 	obj.shape = SPHERE;
-	obj.c.x = 0.6;
+	obj.c.x = 0.5;
 	obj.c.y = 0.12;
 	obj.c.z = 0.5;
-	obj.r = 0.05;
+	obj.r = 0.02;
 	objects.push_back(obj);
 
 }
