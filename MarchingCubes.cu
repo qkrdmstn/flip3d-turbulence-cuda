@@ -568,6 +568,9 @@ void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbul
 	CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
 
+	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	//	(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
+
 	CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_TotalParticles, d_Type, _turbulence->d_Pos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 }
@@ -651,7 +654,7 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 					if (Length(relPos) > width * cellSize)
 						continue;
 					if (type2 == WALL) {
-						float dist = hypotLength(relPos);
+						//float dist = hypotLength(relPos);
 						//if (dist < density / res.x) {
 						//	sdf = 4.5f * density / res.x;
 						//	if (gridIndex.x == 0 || gridIndex.x == res.x - 1 || gridIndex.y == 0 || gridIndex.y == res.y - 1 || gridIndex.z == 0 || gridIndex.z == res.z - 1) {

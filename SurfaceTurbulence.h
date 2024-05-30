@@ -10,9 +10,6 @@
 
 using namespace std;
 
-#define SURFACE_DENSITY 20.0
-#define PER_PARTICLE 140
-
 __host__ __device__
 struct WaveParam
 {
@@ -21,7 +18,7 @@ struct WaveParam
 	REAL _waveSpeed = 8.0;
 	REAL _waveDamping = 0.0f;
 	REAL _waveSeedFreq = 4.0;
-	REAL _waveMaxAmplitude ;
+	REAL _waveMaxAmplitude;
 	REAL _waveMaxFreq = 400.0;
 	REAL _waveMaxSeedingAmplitude = 0.025;
 	REAL _waveSeedingCurvatureThresholdCenter;
@@ -37,10 +34,15 @@ struct MaintenanceParam
 	REAL _fineScaleLen;
 	REAL _outerRadius;
 	REAL _innerRadius;
+	REAL _normalRadius;
 
 	uint _fineRes;
 	uint _coarseRes;
 };
+
+
+#define SURFACE_DENSITY 20.0
+#define PER_PARTICLE 140
 
 class SurfaceTurbulence
 {
@@ -136,6 +138,7 @@ public: //Surface Maintenance
 	void SurfaceMaintenance(void);
 
 public: //Wave Simulation func
+	void AddSeed_kernel(void);
 	void ComputeCurvature_kernel(void);
 	void SeedWave_kernel(int step);
 	void ComputeWaveNormal_kernel(void);
@@ -162,11 +165,7 @@ public:		//Cuda
 	void CopyToHost(void);
 	void ComputeGridSize(uint n, uint blockSize, uint& numBlocks, uint& numThreads)
 	{
-		if (n != 0)
-			numThreads = min(blockSize, n);
-		else
-			numThreads = blockSize;
-		//printf("n: %d, blockSize: %d, numThreads: %d\n", n, blockSize, numThreads);
+		numThreads = min(blockSize, n);
 		numBlocks = divup(n, numThreads);
 	}
 

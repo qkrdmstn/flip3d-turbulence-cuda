@@ -70,7 +70,8 @@ __device__ static  uint GetNumParticleAt(uint i, uint j, uint k, REAL3* pos, uin
 	int3 gridPos = make_int3(i, j, k);
 	uint neighHash = calcGridHash(gridPos, gridRes);
 	uint startIdx = cellStart[neighHash];
-	if (startIdx != 0xffffffff) {
+	if (startIdx != 0xffffffff)
+	{
 		uint endIdx = cellEnd[neighHash];
 		for (uint i = startIdx; i < endIdx; i++)
 		{
@@ -82,6 +83,34 @@ __device__ static  uint GetNumParticleAt(uint i, uint j, uint k, REAL3* pos, uin
 				continue;
 
 			cnt++;
+		}
+	}
+	return cnt;
+}
+
+__device__ static  uint GetNumWallParticleAt(uint i, uint j, uint k, REAL3* pos, uint* type, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes)
+{
+	REAL cellSize = 1.0 / gridRes;
+	REAL3 centerPos = make_REAL3(i + 0.5, j + 0.5, k + 0.5) * cellSize;
+
+	uint cnt = 0;
+	int3 gridPos = make_int3(i, j, k);
+	uint neighHash = calcGridHash(gridPos, gridRes);
+	uint startIdx = cellStart[neighHash];
+	if (startIdx != 0xffffffff)
+	{
+		uint endIdx = cellEnd[neighHash];
+		for (uint i = startIdx; i < endIdx; i++)
+		{
+			uint sortedIdx = gridIdx[i];
+
+			REAL3 dist = pos[sortedIdx] - centerPos;
+			REAL d2 = LengthSquared(dist);
+			if (d2 > cellSize * cellSize)
+				continue;
+
+			if (type[sortedIdx] == WALL)
+				cnt++;
 		}
 	}
 	return cnt;

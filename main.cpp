@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -22,13 +22,14 @@ bool _simulation = false;
 
 bool _fluidFlag = false;
 bool _turbulenceDisplayFlag = false;
-bool _turbulenceBaseFlag = false;
-bool _surfaceReconstructionFlag = true;
+bool _turbulenceBaseFlag = true;
+bool _surfaceReconstructionFlag = false;
 
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
 
+bool advection = true;
 FLIPEngine* _engine;
 
 void Init(void)
@@ -36,7 +37,7 @@ void Init(void)
 	// 깊이값 사용 여부
 	glEnable(GL_DEPTH_TEST);
 	// 0.6e-2
-	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.6e-2);
+	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.005);
 }
 
 void Capture(char* filename, int width, int height)
@@ -73,9 +74,9 @@ void Update(void)
 {
 	if (_simulation) {
 #if SCREEN_CAPTURE
-		if (_frame <= 600 && _frame % 2 == 0)
+		if (_frame <= 1000 && _frame % 2 == 0)
 		{
-			string path = "image\\64\\Trans\\test3\\FLIPGPU" + to_string(_frame) + ".jpg";
+			string path = "image\\capture\\FLIPGPU" + to_string(_frame) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
 		}
@@ -89,11 +90,11 @@ void Update(void)
 			frame = 0;
 		}
 
-		_engine->simulation();
+		_engine->simulation(advection);
 
-		if (_frame == 600) {
-			exit(0);
-		}
+		//if (_frame == 600) {
+		//	exit(0);
+		//}
 		_frame++;
 	}
 	glutPostRedisplay();
@@ -144,11 +145,18 @@ void Draw(void)
 	glDisable(GL_LIGHTING);
 
 	char text[100];
-	sprintf(text, "Frame: %d", _frame);
-	DrawText(10.0f, 760.0f, text);
 
 	sprintf(text, "FPS: %f", fps);
 	DrawText(10.0f, 780.0f, text);
+
+	sprintf(text, "Frame: %d", _frame);
+	DrawText(10.0f, 760.0f, text);
+
+	sprintf(text, "FLIP Particles: %d", _engine->_fluid->_numParticles);
+	DrawText(10.0f, 740.0f, text);
+
+	sprintf(text, "Turbulence Particles: %d", _engine->_turbulence->_numFineParticles);
+	DrawText(10.0f, 720.0f, text);
 }
 
 void Display(void)
@@ -222,6 +230,12 @@ void Keyboard(unsigned char key, int x, int y)
 		else
 			printf("Simulation Start\n");
 		break;
+	case 'c':
+		advection = !advection;
+		if (!advection)
+			printf("advection Pause\n");
+		else
+			printf("advection Start\n");
 	default:
 		break;
 	}
