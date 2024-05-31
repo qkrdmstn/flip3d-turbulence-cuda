@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 32
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1

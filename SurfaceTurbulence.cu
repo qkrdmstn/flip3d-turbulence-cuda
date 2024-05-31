@@ -47,15 +47,15 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 void SurfaceTurbulence::InitWaveParam(void)
 {
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 20.f;
+	waveParam._waveSpeed = maintenanceParam._outerRadius * 26.0f;
 	waveParam._waveDamping = 0.9f;
-	waveParam._waveSeedFreq = 100;
-	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 0.25;
-	waveParam._waveMaxFreq = 400;
-	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.065; // any curvature higher than this value will seed waves
+	waveParam._waveSeedFreq = 140.0f;
+	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2.75;
+	waveParam._waveMaxFreq = 600.0f;
+	waveParam._waveMaxSeedingAmplitude = 0.2f; // as multiple of max amplitude
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
-	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
+	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -361,12 +361,12 @@ void SurfaceTurbulence::EvolveWave_kernel(void)
 
 void SurfaceTurbulence::WaveSimulation_kernel(int step)
 {
-	AddSeed_kernel();
-	ComputeWaveNormal_kernel();
-	ComputeLaplacian_kernel();
-	EvolveWave_kernel();
-	ComputeCurvature_kernel();
-	SeedWave_kernel(step);
+	//ComputeCurvature_kernel();
+	//SeedWave_kernel(step);
+	//AddSeed_kernel();
+	//ComputeWaveNormal_kernel();
+	//ComputeLaplacian_kernel();
+	//EvolveWave_kernel();
 	
 	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
@@ -593,17 +593,17 @@ void SurfaceTurbulence::drawFineParticles(void)
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		////////Curvature visualize
-		//REAL3 color = ScalarToColor(curvature * 1000);
-		//glColor3f(color.x, color.y, color.z);
+		//////Curvature visualize
+		REAL3 color = ScalarToColor(curvature * 1000);
+		glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);
 		//glColor3f(color.x, color.y, color.z);
 		
-		//////Laplacian visualize
-		REAL3 color = ScalarToColor(laplacian * 10000);
-		glColor3f(color.x, color.y, color.z);
+		////////Laplacian visualize
+		//REAL3 color = ScalarToColor(laplacian * 10000);
+		//glColor3f(color.x, color.y, color.z);
 
 		//if (flag) {
 		//	glColor3f(1.0f, 0.0f, 0.0f);

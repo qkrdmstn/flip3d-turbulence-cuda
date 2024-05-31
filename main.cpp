@@ -267,7 +267,7 @@ void ParamSetting(bool flag)
 		case 4:
 		{
 			_engine->_turbulence->waveParam._waveMaxFreq += 10.0f;
-			printf("_waveMaxAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxFreq);
+			printf("_waveMaxFreq: %f\n", _engine->_turbulence->waveParam._waveMaxFreq);
 			break;
 		}
 		case 5:

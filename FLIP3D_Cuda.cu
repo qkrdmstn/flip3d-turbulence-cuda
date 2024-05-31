@@ -192,7 +192,7 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.c.x = 0.5;
 	obj.c.y = 0.2;
 	obj.c.z = 0.5;
-	obj.r = 0.05;
+	obj.r = 0.02;
 	objects.push_back(obj);
 
 }
