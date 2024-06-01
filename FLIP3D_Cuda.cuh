@@ -214,24 +214,100 @@ __global__ void CollisionMovingBox_D(OBB* boxes, REAL3* _pos, REAL3* _vel, uint*
 			new_phi = phi + Dot(((vel - box_vel) * dt), collision_normal);
 			if (new_phi < 0.0f)
 			{
-				collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
-				particle_normal_variation = Dot(vel, collision_normal);
-				collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
-				particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
-				new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
-				relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
-				new_relative_tangential_vel = relative_tangential_vel
-					* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
+				//collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
+				//particle_normal_variation = Dot(vel, collision_normal);
+				//collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
+				//particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
+				//new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
+				//relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
+				//new_relative_tangential_vel = relative_tangential_vel
+				//	* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
 
-				new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
-				REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
-				_vel[idx] = new_vel;
+				//new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
+				//REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
+				//_vel[idx] = new_vel;
+
+				_pos[idx] = make_REAL3(-1, -1, -1);
 			}
 		}
 	}
 }
 
-__global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* vel, uint* type, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles)
+__global__ void InsertFLIPParticles_D(REAL3* curPos, REAL3* beforePos, REAL3* vel, REAL3* normal, uint* type, REAL* mass, REAL* dens, REAL* kernelDens, BOOL* flag, uint numParticles, REAL maxDens, REAL3* newPos, REAL3* newVel, REAL* newMass, uint numInsert)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numInsert)
+		return;
+
+	REAL3 _newPos = newPos[idx];
+	REAL3 _newVel = newVel[idx];
+	REAL _newMass = newMass[idx];
+
+	uint insertIdx = numParticles + idx;
+	beforePos[insertIdx] = _newPos;
+	curPos[insertIdx] = _newPos;
+	vel[insertIdx] = _newVel;
+	normal[insertIdx] = make_REAL3(0.0, 0.0, 0.0);
+	dens[insertIdx] = maxDens;
+	type[insertIdx] = FLUID;
+	mass[insertIdx] = _newMass;
+	kernelDens[insertIdx] = 0.0;
+	flag[insertIdx] = false;
+}
+
+__global__ void InitParticleIdx_D(uint* particleIdx, uint numParticles)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx < numParticles)
+		particleIdx[idx] = idx;
+	else if (idx < MAXPARTICLENUM)
+		particleIdx[idx] = MAXPARTICLENUM;
+	else
+		return;
+}
+
+__global__ void StateCheck_D(REAL3* curPos, uint* stateData)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= MAXPARTICLENUM)
+		return;
+
+
+	if (curPos[idx].x < -0.5 && curPos[idx].y < -0.5 && curPos[idx].z < -0.5)
+	{
+		stateData[idx] = 0;
+	}
+	else
+	{
+		stateData[idx] = 1;
+	}
+}
+
+__global__ void DeleteFLIPParticles_D(uint* particleIdx, REAL3* curPos, REAL3* beforePos, REAL3* vel, REAL3* normal, uint* type, REAL* mass, REAL* dens, REAL* kernelDens, BOOL* flag, uint numParticles)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numParticles)
+		return;
+
+	if (curPos[idx].x < -0.5 && curPos[idx].y < -0.5 && curPos[idx].z < -0.5)
+	{
+		beforePos[idx] = make_REAL3(-1.0, -1.0, -1.0);
+		curPos[idx] = make_REAL3(-1.0, -1.0, -1.0);
+		vel[idx] = make_REAL3(0.0, 0.0, 0.0);
+		normal[idx] = make_REAL3(0.0, 0.0, 0.0);
+		dens[idx] = 0.0f;
+		type[idx] = FLUID;
+		mass[idx] = 0.0f;
+		kernelDens[idx] = 0.0;
+		flag[idx] = false;
+
+		particleIdx[idx] = MAXPARTICLENUM;
+	}
+}
+
+
+
+__global__ void TransferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* vel, uint* type, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, uint numParticles)
 {
 	int3 gridPos;
 	gridPos.x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -242,61 +318,6 @@ __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* ve
 
 	int cellCount = (gridRes) * (gridRes) * (gridRes);
 	REAL cellPhysicalSize = 1.0 / gridRes;
-	
-#if 0
-	REAL3 xVelocityPos = make_REAL3(gridPos.x, (gridPos.y + 0.5), (gridPos.z + 0.5));
-	REAL3 yVelocityPos = make_REAL3((gridPos.x + 0.5), gridPos.y, (gridPos.z + 0.5));
-	REAL3 zVelocityPos = make_REAL3((gridPos.x + 0.5), (gridPos.y + 0.5), gridPos.z);
-
-	REAL4 velocity = make_REAL4(0, 0, 0, 0);
-	REAL4 weight = make_REAL4(0, 0, 0, 0);
-
-	FOR_NEIGHBOR_WALL(2) {
-
-		int3 neighborGridPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
-
-		//if (gridPos.x < 0 || gridPos.x > gridRes - 1 || gridPos.y < 0 || gridPos.y > gridRes - 1 || gridPos.z < 0 || gridPos.z > gridRes - 1)
-		//	continue;
-		uint neighHash = calcGridHash(neighborGridPos, gridRes);
-		uint startIdx = cellStart[neighHash];
-
-		if (startIdx != 0xffffffff)
-		{
-			uint endIdx = cellEnd[neighHash];
-			for (uint i = startIdx; i < endIdx; i++)
-			{
-				uint sortedIdx = gridIdx[i];
-
-				if (type[sortedIdx] == WALL)
-					continue;
-
-				REAL3 neighborPos = pos[sortedIdx];
-				REAL x = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.x));
-				REAL y = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.y));
-				REAL z = max(0.0f, min((REAL)gridRes, gridRes * neighborPos.z));
-				REAL3 pos = make_REAL3(x, y, z);
-
-				REAL3 neighborVel = vel[sortedIdx];
-				REAL neighborMass = mass[sortedIdx];
-				
-				REAL weightX = neighborMass * SharpKernel(LengthSquared(pos - xVelocityPos), 1.4);
-				REAL weightY = neighborMass * SharpKernel(LengthSquared(pos - yVelocityPos), 1.4);
-				REAL weightZ = neighborMass * SharpKernel(LengthSquared(pos - zVelocityPos), 1.4);
-
-				velocity.x += weightX * neighborVel.x;
-				velocity.y += weightY * neighborVel.y;
-				velocity.z += weightZ * neighborVel.z;
-
-				weight.x += weightX;
-				weight.y += weightY;
-				weight.z += weightZ;
-			}
-		}
-	} END_FOR;
-	velocity.x = weight.x ? velocity.x / weight.x : 0.0;
-	velocity.y = weight.y ? velocity.y / weight.y : 0.0;
-	velocity.z = weight.z ? velocity.z / weight.z : 0.0;
-#else
 
 	REAL3 xVelocityPos = make_REAL3(gridPos.x, (gridPos.y + 0.5), (gridPos.z + 0.5)) * cellPhysicalSize;
 	REAL3 yVelocityPos = make_REAL3((gridPos.x + 0.5), gridPos.y, (gridPos.z + 0.5)) * cellPhysicalSize;
@@ -324,9 +345,9 @@ __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* ve
 
 				REAL3 pPosition = pos[sortedIdx];
 				REAL3 pVelocity = vel[sortedIdx];
-				REAL thisWeightX = trilinearHatKernel(pPosition - xVelocityPos, cellPhysicalSize);
-				REAL thisWeightY = trilinearHatKernel(pPosition - yVelocityPos, cellPhysicalSize);
-				REAL thisWeightZ = trilinearHatKernel(pPosition - zVelocityPos, cellPhysicalSize);
+				REAL thisWeightX = mass[sortedIdx] * trilinearHatKernel(pPosition - xVelocityPos, cellPhysicalSize);
+				REAL thisWeightY = mass[sortedIdx] * trilinearHatKernel(pPosition - yVelocityPos, cellPhysicalSize);
+				REAL thisWeightZ = mass[sortedIdx] * trilinearHatKernel(pPosition - zVelocityPos, cellPhysicalSize);
 
 				velocity.x += thisWeightX * pVelocity.x;
 				velocity.y += thisWeightY * pVelocity.y;
@@ -353,7 +374,7 @@ __global__ void TrasnferToGrid_D(VolumeCollection volumes, REAL3* pos, REAL3* ve
 		velocity.z /= weight.z;
 		hasVelocity.z = true;
 	}
-#endif
+
 	volumes.vel.writeSurface<REAL4>(velocity, gridPos.x, gridPos.y, gridPos.z);
 	volumes.velSave.writeSurface<REAL4>(velocity, gridPos.x, gridPos.y, gridPos.z);
 	volumes.hasVel.writeSurface<uint4>(hasVelocity, gridPos.x, gridPos.y, gridPos.z);
@@ -482,7 +503,6 @@ __global__ void ComputeLevelSet_D(VolumeCollection volumes, REAL3* pos, uint* ty
 
 	volumes.levelSet.writeSurface<REAL>(levelSet, x, y, z);
 }
-
 
 __global__ void CopyToSolver_D(VolumeCollection volumes, uint* _airD, REAL* _levelsetD, REAL* _pressureD, REAL* _divergenceD, uint gridRes)
 {
@@ -1169,7 +1189,7 @@ __global__ void ConstraintOuterWall_D(REAL3* pos, REAL3* vel, REAL3* normal, uin
 	}END_FOR;
 }
 
-__device__ REAL3 Resample(REAL3 curPos, REAL3 curVel, REAL3* pos, REAL3* vel, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, REAL re)
+__device__ REAL3 Resample(REAL3 curPos, REAL3 curVel, REAL3* pos, REAL3* vel, REAL* mass, uint* gridHash, uint* gridIdx, uint* cellStart, uint* cellEnd, uint gridRes, REAL re)
 {
 	REAL wsum = 0.0f;
 	REAL3 save = make_REAL3(curVel.x, curVel.y, curVel.z);
@@ -1189,7 +1209,7 @@ __device__ REAL3 Resample(REAL3 curPos, REAL3 curVel, REAL3* pos, REAL3* vel, ui
 				uint sortedIdx = gridIdx[i];
 				REAL3 dist = curPos - pos[sortedIdx];
 				REAL d2 = LengthSquared(dist);
-				REAL w = 1.0 * SharpKernel(d2, re);
+				REAL w = mass[sortedIdx] * SharpKernel(d2, re);
 				curVel += w * vel[sortedIdx];
 				wsum += w;
 			}
@@ -1259,7 +1279,7 @@ __global__ void Correct_D(REAL3* pos, REAL3* vel, REAL3* normal, REAL* mass, uin
 	REAL3 temp = pos[idx] + dt * spring;
 
 	REAL3 temp2 = vel[idx];
-	temp2 = Resample(temp, temp2, pos, vel, gridHash, gridIdx, cellStart, cellEnd, gridRes, re);
+	temp2 = Resample(temp, temp2, pos, vel, mass, gridHash, gridIdx, cellStart, cellEnd, gridRes, re);
 
 	pos[idx] = temp;
 	vel[idx] = temp2;

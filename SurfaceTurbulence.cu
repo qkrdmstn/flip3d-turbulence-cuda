@@ -36,7 +36,6 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
 	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; 
-	//maintenanceParam._outerRadius = 0.0075;
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -48,13 +47,13 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 void SurfaceTurbulence::InitWaveParam(void)
 {
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 40.f;
+	waveParam._waveSpeed = maintenanceParam._outerRadius * 20.f;
 	waveParam._waveDamping = 0.9f;
-	waveParam._waveSeedFreq = 400;
-	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2;
+	waveParam._waveSeedFreq = 100;
+	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 0.25;
 	waveParam._waveMaxFreq = 400;
 	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.065; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
 }
@@ -62,7 +61,7 @@ void SurfaceTurbulence::InitWaveParam(void)
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
 {
 	thrust::exclusive_scan(thrust::device_ptr<uint>(input),
-		thrust::device_ptr<uint>(input + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(input + (numElements)),
 		thrust::device_ptr<uint>(output));
 }
 
@@ -76,9 +75,9 @@ void SurfaceTurbulence::Initialize_kernel()
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
 		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
 		thrust::device_ptr<REAL3>(d_Pos()));
-
+	
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(this->d_Pos(), this->d_ParticleGridIndex(), this->d_StateData(), _fluid->_numParticles);
+		(this->d_Pos(), this->d_StateData(), _fluid->_numParticles);
 
 	ThrustScanWrapper_kernel(this->d_StateData(), this->d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
 
@@ -218,7 +217,7 @@ void SurfaceTurbulence::InsertFineParticles(void)
 
 
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Pos(), d_ParticleGridIndex(), d_StateData(), _fluid->_numParticles);
+		(d_Pos(), d_StateData(), _fluid->_numParticles);
 
 	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
 
@@ -278,7 +277,7 @@ void SurfaceTurbulence::DeleteFineParticles(void)
 		thrust::device_ptr<REAL>(d_Seed()));
 
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Pos(), d_ParticleGridIndex(), d_StateData(), _fluid->_numParticles);
+		(d_Pos(), d_StateData(), _fluid->_numParticles);
 
 	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
 
@@ -322,15 +321,6 @@ void  SurfaceTurbulence::ComputeCurvature_kernel(void)
 
 void SurfaceTurbulence::SeedWave_kernel(int step)
 {
-	SetHashTable_kernel();
-
-	REAL r = 3.0 * maintenanceParam._fineScaleLen;
-	ComputeFineDens_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, d_Pos(), d_KernelDens(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
-
-	ComputeFineNeighborWeightSum_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(r, d_Pos(), d_KernelDens(), d_NeighborWeightSum(), d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, maintenanceParam);
-
 	SeedWave_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_Curvature(), d_WaveSeedAmp(), d_Seed(), _numFineParticles, step, waveParam);
 }
@@ -371,18 +361,15 @@ void SurfaceTurbulence::EvolveWave_kernel(void)
 
 void SurfaceTurbulence::WaveSimulation_kernel(int step)
 {
-
 	ComputeCurvature_kernel();
-	//SeedWave_kernel(step);
-	//AddSeed_kernel();
-	//ComputeWaveNormal_kernel();
-	//ComputeLaplacian_kernel();
-	//EvolveWave_kernel();
+	SeedWave_kernel(step);
+	AddSeed_kernel();
+	ComputeWaveNormal_kernel();
+	ComputeLaplacian_kernel();
+	EvolveWave_kernel();
 	
 	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
-
-
 }
 
 void SurfaceTurbulence::SetHashTable_kernel(void)
@@ -418,63 +405,61 @@ void SurfaceTurbulence::FindCellStart_kernel(void)
 void SurfaceTurbulence::InitHostMem(void)
 {
 	//Surface Maintenance
-	h_Pos.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_Vel.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_SurfaceNormal.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_TempNormal.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_TempPos.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_Tangent.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_KernelDens.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_NeighborWeightSum.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_Flag.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_Pos.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_Vel.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_SurfaceNormal.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_TempNormal.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_TempPos.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_Tangent.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_Flag.resize(MAXPARTICLENUM * PER_PARTICLE);
 
 	////Wave Simulation
-	h_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_Seed.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);
-	h_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_Curvature.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_TempCurvature.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_WaveH.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_WaveDtH.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_Seed.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_WaveSeedAmp.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_Laplacian.resize(MAXPARTICLENUM * PER_PARTICLE);
+	h_WaveNormal.resize(MAXPARTICLENUM * PER_PARTICLE);
 
 	//Display Particle
-	h_DisplayPos.resize(_fluid->_numParticles * PER_PARTICLE);
+	h_DisplayPos.resize(MAXPARTICLENUM * PER_PARTICLE);
 }
 
 void SurfaceTurbulence::InitDeviceMem()
 {
 	//Initialize
-	d_ParticleGridIndex.resize(_fluid->_numParticles * PER_PARTICLE);	d_ParticleGridIndex.memset(0);
-	d_StateData.resize(_fluid->_numParticles * PER_PARTICLE);			d_StateData.memset(0);
+	d_ParticleGridIndex.resize(MAXPARTICLENUM * PER_PARTICLE);	d_ParticleGridIndex.memset(0);
+	d_StateData.resize(MAXPARTICLENUM * PER_PARTICLE);			d_StateData.memset(0);
 
 	//Surface Maintenance
-	d_Pos.resize(_fluid->_numParticles * PER_PARTICLE);					d_Pos.memset(0);
-	d_Vel.resize(_fluid->_numParticles * PER_PARTICLE);					d_Vel.memset(0);
-	d_SurfaceNormal.resize(_fluid->_numParticles * PER_PARTICLE);		d_SurfaceNormal.memset(0);
-	d_TempNormal.resize(_fluid->_numParticles * PER_PARTICLE);			d_TempNormal.memset(0);
-	d_TempPos.resize(_fluid->_numParticles * PER_PARTICLE);				d_TempPos.memset(0);
-	d_Tangent.resize(_fluid->_numParticles * PER_PARTICLE);				d_Tangent.memset(0);
-	d_KernelDens.resize(_fluid->_numParticles * PER_PARTICLE);			d_KernelDens.memset(0);
-	d_NeighborWeightSum.resize(_fluid->_numParticles * PER_PARTICLE);	d_NeighborWeightSum.memset(0);
-	d_Flag.resize(_fluid->_numParticles * PER_PARTICLE);				d_Flag.memset(0);
+	d_Pos.resize(MAXPARTICLENUM * PER_PARTICLE);					d_Pos.memset(0);
+	d_Vel.resize(MAXPARTICLENUM * PER_PARTICLE);					d_Vel.memset(0);
+	d_SurfaceNormal.resize(MAXPARTICLENUM * PER_PARTICLE);		d_SurfaceNormal.memset(0);
+	d_TempNormal.resize(MAXPARTICLENUM * PER_PARTICLE);			d_TempNormal.memset(0);
+	d_TempPos.resize(MAXPARTICLENUM * PER_PARTICLE);				d_TempPos.memset(0);
+	d_Tangent.resize(MAXPARTICLENUM * PER_PARTICLE);				d_Tangent.memset(0);
+	d_KernelDens.resize(MAXPARTICLENUM * PER_PARTICLE);			d_KernelDens.memset(0);
+	d_NeighborWeightSum.resize(MAXPARTICLENUM * PER_PARTICLE);	d_NeighborWeightSum.memset(0);
+	d_Flag.resize(MAXPARTICLENUM * PER_PARTICLE);				d_Flag.memset(0);
 
 	////Wave Simulation
-	d_Curvature.resize(_fluid->_numParticles * PER_PARTICLE);			d_Curvature.memset(0);
-	d_TempCurvature.resize(_fluid->_numParticles * PER_PARTICLE);		d_TempCurvature.memset(0);
-	d_WaveH.resize(_fluid->_numParticles * PER_PARTICLE);				d_WaveH.memset(0);
-	d_WaveDtH.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveDtH.memset(0);
-	d_Seed.resize(_fluid->_numParticles * PER_PARTICLE);				d_Seed.memset(0);
-	d_WaveSeedAmp.resize(_fluid->_numParticles * PER_PARTICLE);		d_WaveSeedAmp.memset(0);
-	d_Laplacian.resize(_fluid->_numParticles * PER_PARTICLE);			d_Laplacian.memset(0);
-	d_WaveNormal.resize(_fluid->_numParticles * PER_PARTICLE);			d_WaveNormal.memset(0);
+	d_Curvature.resize(MAXPARTICLENUM * PER_PARTICLE);			d_Curvature.memset(0);
+	d_TempCurvature.resize(MAXPARTICLENUM * PER_PARTICLE);		d_TempCurvature.memset(0);
+	d_WaveH.resize(MAXPARTICLENUM * PER_PARTICLE);				d_WaveH.memset(0);
+	d_WaveDtH.resize(MAXPARTICLENUM * PER_PARTICLE);			d_WaveDtH.memset(0);
+	d_Seed.resize(MAXPARTICLENUM * PER_PARTICLE);				d_Seed.memset(0);
+	d_WaveSeedAmp.resize(MAXPARTICLENUM * PER_PARTICLE);		d_WaveSeedAmp.memset(0);
+	d_Laplacian.resize(MAXPARTICLENUM * PER_PARTICLE);			d_Laplacian.memset(0);
+	d_WaveNormal.resize(MAXPARTICLENUM * PER_PARTICLE);			d_WaveNormal.memset(0);
 
 	//Display Particle
-	d_DisplayPos.resize(_fluid->_numParticles * PER_PARTICLE);			d_DisplayPos.memset(0);
+	d_DisplayPos.resize(MAXPARTICLENUM * PER_PARTICLE);			d_DisplayPos.memset(0);
 
 	//Hash
-	d_GridHash.resize(_fluid->_numParticles * PER_PARTICLE);			d_GridHash.memset(0);
-	d_GridIdx.resize(_fluid->_numParticles * PER_PARTICLE);			d_GridIdx.memset(0);
+	d_GridHash.resize(MAXPARTICLENUM * PER_PARTICLE);			d_GridHash.memset(0);
+	d_GridIdx.resize(MAXPARTICLENUM * PER_PARTICLE);			d_GridIdx.memset(0);
 	d_CellStart.resize(maintenanceParam._fineRes * maintenanceParam._fineRes * maintenanceParam._fineRes);			d_CellStart.memset(0);
 	d_CellEnd.resize(maintenanceParam._fineRes * maintenanceParam._fineRes * maintenanceParam._fineRes);			d_CellEnd.memset(0);
 }
@@ -525,8 +510,6 @@ void SurfaceTurbulence::CopyToDevice()
 	d_TempNormal.copyFromHost(h_TempNormal);
 	d_TempPos.copyFromHost(h_TempPos);
 	d_Tangent.copyFromHost(h_Tangent);
-	d_KernelDens.copyFromHost(h_KernelDens);
-	d_NeighborWeightSum.copyFromHost(h_NeighborWeightSum);
 	d_Flag.copyFromHost(h_Flag);
 
 	////Wave Simulation
@@ -552,8 +535,6 @@ void SurfaceTurbulence::CopyToHost()
 	d_TempNormal.copyToHost(h_TempNormal);
 	d_TempPos.copyToHost(h_TempPos);
 	d_Tangent.copyToHost(h_Tangent);
-	d_KernelDens.copyToHost(h_KernelDens);
-	d_NeighborWeightSum.copyToHost(h_NeighborWeightSum);
 	d_Flag.copyToHost(h_Flag);
 
 	////Wave Simulation
@@ -614,8 +595,8 @@ void SurfaceTurbulence::drawFineParticles(void)
 		//REAL3 color = ScalarToColor(waveH * 1000);
 		//glColor3f(color.x, color.y, color.z);
 		
-		////////Laplacian visualize
-		//REAL3 color = ScalarToColor(laplacian * 10000);
+		//////Laplacian visualize
+		//REAL3 color = ScalarToColor(laplacian * 10);
 		//glColor3f(color.x, color.y, color.z);
 
 		//if (flag) {
@@ -644,11 +625,12 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		REAL3 position = h_DisplayPos[i];
 		REAL waveDt = h_WaveDtH[i];
 		REAL waveH = h_WaveH[i];
+		REAL seed = h_Seed[i];
 
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
-		////WaveH visualize
+		//// visualize
 		REAL3 color = ScalarToColor(waveH * 1000);
 		glColor3f(color.x, color.y, color.z);
 

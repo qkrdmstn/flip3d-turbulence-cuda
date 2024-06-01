@@ -25,6 +25,8 @@ bool _turbulenceDisplayFlag = false;
 bool _turbulenceBaseFlag = true;
 bool _surfaceReconstructionFlag = false;
 
+int curParam = 1;
+
 int frame = 0, curTime, timebase = 0;
 int _frame = 0;
 double fps = 0;
@@ -188,6 +190,174 @@ void Reshape(int w, int h)
 	glLoadIdentity();
 }
 
+void ParamSelect(bool flag)
+{
+	if (flag)
+		curParam++;
+	else
+		curParam--;
+	if (curParam < 0)
+		curParam += 7;
+	curParam %= 7;
+
+	switch (curParam)
+	{
+	case 0:
+		printf("Set Param _waveSpeed\n");
+		break;
+	case 1:
+		printf("Set Param _waveDamping\n");
+		break;
+	case 2:
+		printf("Set Param _waveSeedFreq\n");
+		break;
+	case 3:
+		printf("Set Param _waveMaxAmplitude\n");
+		break;
+	case 4:
+		printf("Set Param _waveMaxFreq\n");
+		break;
+	case 5:
+		printf("Set Param  _waveMaxSeedingAmplitude\n");
+		break;
+	case 6:
+		printf("Set Param _waveSeedStepSizeRatioOfMax\n");
+		break;
+	default:
+		break;
+	}
+	glutPostRedisplay();
+}
+
+void ParamSetting(bool flag)
+{
+	float outerRadius = _engine->_turbulence->maintenanceParam._outerRadius;
+	if (flag)
+	{
+		switch (curParam)
+		{
+		case 0:
+		{
+			float scale = _engine->_turbulence->waveParam._waveSpeed / outerRadius;
+			scale += 0.1f;
+			_engine->_turbulence->waveParam._waveSpeed = scale * outerRadius;
+			printf("_waveSpeed: %f\n", scale);
+			break;
+		}
+		case 1:
+		{
+			_engine->_turbulence->waveParam._waveDamping += 0.1f;
+			printf("_waveDamping: %f\n", _engine->_turbulence->waveParam._waveDamping);
+			break;
+		}
+		case 2:
+		{
+			_engine->_turbulence->waveParam._waveSeedFreq += 1.0f;
+			printf("_waveSeedFreq: %f\n", _engine->_turbulence->waveParam._waveSeedFreq);
+			break;
+		}
+		case 3:
+		{
+			float scale = _engine->_turbulence->waveParam._waveMaxAmplitude / outerRadius;
+			scale += 0.01f;
+			_engine->_turbulence->waveParam._waveMaxAmplitude = scale * outerRadius;
+			printf("_waveMaxAmplitude: %f\n", scale);
+			break;
+		}
+		case 4:
+		{
+			_engine->_turbulence->waveParam._waveMaxFreq += 10.0f;
+			printf("_waveMaxAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxFreq);
+			break;
+		}
+		case 5:
+		{
+			_engine->_turbulence->waveParam._waveMaxSeedingAmplitude += 0.1f;
+			printf("_waveMaxSeedingAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxSeedingAmplitude);
+			break;
+		}
+		case 6:
+		{
+			_engine->_turbulence->waveParam._waveSeedStepSizeRatioOfMax += 0.01f;
+			printf("_waveSeedStepSizeRatioOfMax: % f\n", _engine->_turbulence->waveParam._waveSeedStepSizeRatioOfMax);
+			break;
+		}
+		default:
+			break;
+		}
+
+	}
+	else
+	{
+		switch (curParam)
+		{
+		case 0:
+		{
+			float scale = _engine->_turbulence->waveParam._waveSpeed / outerRadius;
+			scale -= 0.1f;
+			_engine->_turbulence->waveParam._waveSpeed = scale * outerRadius;
+			printf("_waveSpeed: %f\n", scale);
+			break;
+		}
+		case 1:
+		{
+			_engine->_turbulence->waveParam._waveDamping -= 0.1f;
+			printf("_waveDamping: %f\n", _engine->_turbulence->waveParam._waveDamping);
+			break;
+		}
+		case 2:
+		{
+			_engine->_turbulence->waveParam._waveSeedFreq -= 1.0f;
+			printf("_waveSeedFreq: %f\n", _engine->_turbulence->waveParam._waveSeedFreq);
+			break;
+		}
+		case 3:
+		{
+			float scale = _engine->_turbulence->waveParam._waveMaxAmplitude / outerRadius;
+			scale -= 0.01f;
+			_engine->_turbulence->waveParam._waveMaxAmplitude = scale * outerRadius;
+			printf("_waveMaxAmplitude: %f\n", scale);
+			break;
+		}
+		case 4:
+		{
+			_engine->_turbulence->waveParam._waveMaxFreq -= 10.0f;
+			printf("_waveMaxAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxFreq);
+			break;
+		}
+		case 5:
+		{
+			_engine->_turbulence->waveParam._waveMaxSeedingAmplitude -= 0.1f;
+			printf("_waveMaxSeedingAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxSeedingAmplitude);
+			break;
+		}
+		case 6:
+		{
+			_engine->_turbulence->waveParam._waveSeedStepSizeRatioOfMax -= 0.01f;
+			printf("_waveSeedStepSizeRatioOfMax: % f\n", _engine->_turbulence->waveParam._waveSeedStepSizeRatioOfMax);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+void PrintParam()
+{
+	printf("\n\n\n");
+	float outerRadius = _engine->_turbulence->maintenanceParam._outerRadius;
+	float scale1 = _engine->_turbulence->waveParam._waveSpeed / outerRadius;
+	printf("_waveSpeed: %f\n", scale1);
+	printf("_waveDamping: %f\n", _engine->_turbulence->waveParam._waveDamping);
+	printf("_waveSeedFreq: %f\n", _engine->_turbulence->waveParam._waveSeedFreq);
+	float scale2 = _engine->_turbulence->waveParam._waveMaxAmplitude / outerRadius;
+	printf("_waveMaxAmplitude: %f\n", scale2);
+	printf("_waveMaxAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxFreq);
+	printf("_waveMaxSeedingAmplitude: %f\n", _engine->_turbulence->waveParam._waveMaxSeedingAmplitude);
+	printf("_waveSeedStepSizeRatioOfMax: % f\n\n\n", _engine->_turbulence->waveParam._waveSeedStepSizeRatioOfMax);
+}
+
 void Keyboard(unsigned char key, int x, int y)
 {
 	switch (key)
@@ -236,6 +406,21 @@ void Keyboard(unsigned char key, int x, int y)
 			printf("advection Pause\n");
 		else
 			printf("advection Start\n");
+		break;
+	case 'o':
+		ParamSetting(false);
+		break;
+	case 'p':
+		ParamSetting(true);
+		break;
+	case 'k':
+		ParamSelect(false);
+		break;
+	case 'l':
+		ParamSelect(true);
+		break;
+	case'j':
+		PrintParam();
 	default:
 		break;
 	}
@@ -287,6 +472,8 @@ void Motion(int x, int y)
 	glutPostRedisplay();
 }
 
+
+
 void main(int argc, char** argv)
 {
 	glutInit(&argc, argv);
@@ -301,5 +488,7 @@ void main(int argc, char** argv)
 	glutMouseFunc(Mouse);
 	glutMotionFunc(Motion);
 	glutKeyboardFunc(Keyboard);
+
+
 	glutMainLoop();
 }

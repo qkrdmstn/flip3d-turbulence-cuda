@@ -132,7 +132,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 	}
 }
 
-__global__ void StateCheck_D(REAL3* finePos, uint* particleGridIdx, uint* stateData, uint numCoarseParticles)
+__global__ void StateCheck_D(REAL3* finePos, uint* stateData, uint numCoarseParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numCoarseParticles)
@@ -312,9 +312,6 @@ __global__ void Advection_D(REAL3* finePos, REAL3* coarseCurPos, REAL3* coarseBe
 
 	finePos[idx] += displacement;
 	flag[idx] = false;
-
-	//if (!IsInDomain(fPos))
-	//	printf("%f %f %f !!!!\n", fPos.x, fPos.y, fPos.z);
 }
 
 
@@ -334,10 +331,6 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* coarseTy
 	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._outerRadius))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
 	REAL3 fPos = finePos;
-
-	//if (!IsInDomain(fPos))
-	//	printf("fPos: %f %f %f,\n", fPos.x, fPos.y, fPos.z);
-	
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
 	REAL f = 0.0;
@@ -366,24 +359,22 @@ __device__ REAL MetaballLevelSet(REAL3 finePos, REAL3* coarsePos, uint* coarseTy
 					continue;
 
 				cnt++;
-				REAL bF = f;
 				f += exp(-a * d2);
 			}
 		}
 	}END_FOR;
 	if (f > 1.0f) f = 1.0f;
-	REAL bF = f;
+
 	f = (sqrt(-log(f) / a) - r) / (R - r);
+
 	if (f > 10.0)
 	{
-		//printf("%d\n", cnt);
-		//printf("levelSet %f, bF: %f, cnt: %d, fPos = %f %f %f !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", f, bF, cnt, fPos.x, fPos.y, fPos.z);
 		f = 10.0f;
 	}
 	return f;
 }
 
-__device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, int width, MaintenanceParam maintenanceParam)
+__device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uint* coarseType, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
 	REAL cellSize = 1.0 / maintenanceParam._coarseRes;
 
@@ -392,11 +383,14 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 	REAL u = (3.0 / 2.0) * R;
 	REAL a = log(2.0 / (1.0 + MetaballDens(u, maintenanceParam._outerRadius))) / (pow(u / 2.0, 2.0) - pow(r, 2.0));
 
+	REAL3 gradient = make_REAL3(0, 0, 0);
+	
 	REAL3 fPos = finePos;
 	int3 gridPos = calcGridPos(fPos, cellSize);
 
-	REAL3 gradient = make_REAL3(0, 0, 0);
-	FOR_NEIGHBOR(width)
+	REAL radius = 2 * maintenanceParam._outerRadius;
+	int width = (radius / cellSize) + 1;
+	FOR_NEIGHBOR(2)
 	{
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
@@ -434,27 +428,17 @@ __global__ void SurfaceConstraint_D(REAL3* finePos, REAL3* coarsePos, uint* coar
 	REAL r = maintenanceParam._innerRadius;
 
 	REAL3 fPos = finePos[idx];
-	REAL3 fPos1 = fPos;
-	//if (!IsInDomain(finePos[idx]))
-	//	printf("fPos1: %f %f %f,\n", fPos1.x, fPos1.y, fPos1.z);
 
 	REAL levelSet = MetaballLevelSet(fPos, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam);
 	if (levelSet <= 1.0 && levelSet >= 0.0) return;
 
-	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseType, gridIdx, cellStart, cellEnd, 2, maintenanceParam); // Constraints Projection
+	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseType, gridIdx, cellStart, cellEnd, maintenanceParam); // Constraints Projection
 	if (levelSet < 0.0)
-	{
 		fPos -= gradient * (R - r) * levelSet;
-	}
 	else if (levelSet > 1.0)
-	{
 		fPos -= gradient * (R - r) * (levelSet - 1);
-	}
 
 	finePos[idx] = fPos;
-	REAL3 fPos2 = fPos;
-	//if (!IsInDomain(finePos[idx]))
-	//	printf("fPos1: %f %f %f, fPos2: %f %f %f,\n", fPos1.x, fPos1.y, fPos1.z, fPos2.x, fPos2.y, fPos2.z);
 }
 
 
@@ -518,7 +502,7 @@ __global__ void ComputeSurfaceNormal_D(REAL3* coarsePos, uint* coarseType, uint*
 
 	REAL r = maintenanceParam._normalRadius;
 	REAL3 fPos = finePos[idx];
-	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseType, coarseGridIdx, coarseCellStart, coarseCellEnd, 2, maintenanceParam);
+	REAL3 gradient = MetaballConstraintGradient(fPos, coarsePos, coarseType, coarseGridIdx, coarseCellStart, coarseCellEnd, maintenanceParam);
 
 	REAL3 n = gradient;
 	REAL3 vx = make_REAL3(1, 0, 0);
@@ -1104,8 +1088,6 @@ __global__ void SeedWave_D(REAL* curvature, REAL* waveSeedAmplitude, REAL* seed,
 
 	//// source values for display (not used after this point anyway)
 	curvature[idx] = (source >= 0) ? 1 : 0;
-
-
 }
 
 __global__ void AddSeed_D(REAL* waveH, REAL* seed, uint numFineParticles)

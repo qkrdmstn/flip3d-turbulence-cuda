@@ -41,7 +41,7 @@ struct MaintenanceParam
 };
 
 
-#define SURFACE_DENSITY 20.0
+#define SURFACE_DENSITY 30.0
 #define PER_PARTICLE 140
 
 class SurfaceTurbulence
@@ -85,8 +85,6 @@ public: //Host
 	vector<REAL3> h_TempNormal;
 	vector<REAL3> h_TempPos;
 	vector<REAL3> h_Tangent;
-	vector<REAL> h_KernelDens;
-	vector<REAL> h_NeighborWeightSum;
 	vector<BOOL> h_Flag;
 
 	//Wave Simulation
