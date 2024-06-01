@@ -25,6 +25,8 @@
 
 #define PI          3.141592
 
+#define MAXPARTICLENUM 50000
+
 #define GRIDRENDER 0
 using namespace std;
 
@@ -42,8 +44,8 @@ class FLIP3D_Cuda
 {//particle
 public:		//Device
 	//Particle
-	Dvector<REAL3> d_BeforePos;
 	Dvector<REAL3> d_CurPos;
+	Dvector<REAL3> d_BeforePos;
 	Dvector<REAL3> d_Vel;
 	Dvector<REAL3> d_Normal;
 	Dvector<uint> d_Type;
@@ -69,8 +71,8 @@ public:		//Device
 
 public:		//Host
 	//Particle
-	vector<REAL3> h_BeforePos;
 	vector<REAL3> h_CurPos;
+	vector<REAL3> h_BeforePos;
 	vector<REAL3> h_Vel;
 	vector<REAL3> h_Normal;
 	vector<uint> h_Type;
@@ -79,7 +81,6 @@ public:		//Host
 	vector<REAL> h_KernelDens;
 
 	vector<BOOL> h_Flag;
-
 
 #if GRIDRENDER
 	//grid visualize
@@ -148,7 +149,11 @@ public:		//Simulation
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);
 	void EnforceBoundary_kernel(void);
+	void InsertFLIPParticles_kernel(/*REAL3* d_newPos, REAL3* d_newVel, REAL* d_newMass, uint numInsertParticles*/);
+	void DeleteFLIPParticles_kernel(/*uint* deleteIdxes, uint deletNum*/);
+	void ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements);
 
+public:
 	//Solver
 	void SolvePressure(void);
 	void ComputeDivergence_kernel(void);
@@ -167,13 +172,15 @@ public:		//Simulation
 
 	void Correct_kernel(REAL dt);
 
+
 public:	//Hash
 	void SetHashTable_kernel(void);
 	void CalculateHash_kernel(void);
 	void SortParticle_kernel(void);
 	void FindCellStart_kernel(void);
 
-public:		//Cuda
+public:	//Cuda
+	void InitHostMem(void);
 	void InitDeviceMem(void);
 	void FreeDeviceMem(void);
 	void CopyToDevice(void);

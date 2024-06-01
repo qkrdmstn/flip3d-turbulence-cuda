@@ -22,8 +22,10 @@ void FLIP3D_Cuda::Init(void)
 
 	_grid = new FLIPGRID(_gridRes, _cellPhysicalSize);
 
+	_numParticles = 0;
+
+	InitHostMem();
 	ParticleInit();
-	_numParticles = h_CurPos.size();
 	printf("Num FLIP particles: %d\n", _numParticles);
 
 	////For grid visualize
@@ -77,25 +79,25 @@ void FLIP3D_Cuda::ParticleInit()
 		}
 	}
 
-	for (int iter = 0; iter < h_CurPos.size(); iter++)
-	{
-		if (h_Type[iter] == WALL) {
-			iter++;
-			continue;
-		}
-		int i = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].x * _gridRes));
-		int j = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].y * _gridRes));
-		int k = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].z * _gridRes));
-	}
+	//for (int iter = 0; iter < h_CurPos.size(); iter++)
+	//{
+	//	if (h_Type[iter] == WALL) {
+	//		iter++;
+	//		continue;
+	//	}
+	//	int i = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].x * _gridRes));
+	//	int j = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].y * _gridRes));
+	//	int k = fmin(_gridRes - 1, fmax(0, h_CurPos[iter].z * _gridRes));
+	//}
 }
 
 void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
+	//WaterDropTest();
 	//DamBreakTest();
-	//RotateBoxesTest();
+	RotateBoxesTest();
 	//MoveBoxTest();
 }
 
@@ -403,15 +405,16 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 		REAL kernelDens = 0.0;
 		BOOL flag = false;
 
-		h_BeforePos.push_back(beforePos);
-		h_CurPos.push_back(curPos);
-		h_Vel.push_back(vel);
-		h_Normal.push_back(normal);
-		h_Dens.push_back(dens);
-		h_Type.push_back(type);
-		h_Mass.push_back(mass);
-		h_KernelDens.push_back(kernelDens);
-		h_Flag.push_back(false);
+		h_BeforePos[_numParticles] = beforePos;
+		h_CurPos[_numParticles] = curPos;
+		h_Vel[_numParticles] = vel;
+		h_Normal[_numParticles] = normal;
+		h_Dens[_numParticles] = dens;
+		h_Type[_numParticles] = type;
+		h_Mass[_numParticles] = mass;
+		h_KernelDens[_numParticles] = kernelDens;
+		h_Flag[_numParticles] = false;
+		_numParticles++;
 	}
 }
 
@@ -448,6 +451,147 @@ void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
 		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
 }
 
+void FLIP3D_Cuda::InsertFLIPParticles_kernel(/*REAL3* d_newPos, REAL3* d_newVel, REAL* d_newMass, uint numInsertParticles*/)
+{
+	//임시 파티클 삽입 로직
+	vector<REAL3> h_newPos;
+	vector<REAL3> h_newVel;
+	vector<REAL> h_newMass;
+
+	h_newPos.clear();
+	h_newVel.clear();
+	h_newMass.clear();
+
+	REAL pourPosX = 0.5;
+	REAL pourPosZ = 0.5;
+	REAL pourRad = 0.1;
+
+	double w = _dens / _gridRes;
+	for (REAL x = w + w / 2.0; x < 1.0 - w / 2.0; x += w) {
+		for (REAL z = w + w / 2.0; z < 1.0 - w / 2.0; z += w) {
+			if (hypot(x - pourPosX, z - pourPosZ) < pourRad) {
+				h_newPos.push_back(make_REAL3(x, 1.0 - _wallThick - 0.2, z));
+				h_newVel.push_back(make_REAL3(0.0f, -0.5 * _dens / _gridRes / 0.005f, 0.0f));
+				h_newMass.push_back(1.0);
+			}
+		}
+	}
+	uint numInsertParticles = h_newPos.size();
+
+	Dvector<REAL3> d_newPos;
+	Dvector<REAL3> d_newVel;
+	Dvector<REAL> d_newMass;
+
+	d_newPos.resize(numInsertParticles);
+	d_newVel.resize(numInsertParticles);
+	d_newMass.resize(numInsertParticles);
+
+	d_newPos.memset(0);
+	d_newVel.memset(0);
+	d_newMass.memset(0);
+
+	d_newPos.copyFromHost(h_newPos);
+	d_newVel.copyFromHost(h_newVel);
+	d_newMass.copyFromHost(h_newMass);
+
+	//삽입
+	InsertFLIPParticles_D << < divup(numInsertParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_CurPos(), d_BeforePos(), d_Vel(), d_Normal(), d_Type(), d_Mass(), d_Dens(), d_KernelDens(), d_Flag(), _numParticles, _maxDens,
+			d_newPos(), d_newVel(), d_newMass(), numInsertParticles);
+
+	_numParticles += numInsertParticles;
+
+	d_newPos.free();
+	d_newVel.free();
+	d_newMass.free();
+
+	cudaDeviceSynchronize();
+}
+
+void FLIP3D_Cuda::DeleteFLIPParticles_kernel(/*uint* d_deleteIdxes, uint deletNum*/)
+{
+	Dvector<uint> d_ParticleGridIdx;
+	d_ParticleGridIdx.resize(MAXPARTICLENUM);
+	d_ParticleGridIdx.memset(0);
+	InitParticleIdx_D << < divup(MAXPARTICLENUM, BLOCK_SIZE), BLOCK_SIZE >> > (d_ParticleGridIdx(), _numParticles);
+
+	//삭제
+	DeleteFLIPParticles_D << < divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_ParticleGridIdx(), d_CurPos(), d_BeforePos(), d_Vel(), d_Normal(), d_Type(), d_Mass(), d_Dens(), d_KernelDens(), d_Flag(), _numParticles);
+
+	//vel,pos,beforePos, normal, mass, dens, 유지
+	//Copy Key
+	Dvector<uint> d_key1, d_key2, d_key3, d_key4, d_key5, d_key6, d_key7;
+	d_key1.resize(MAXPARTICLENUM);
+	d_key2.resize(MAXPARTICLENUM);
+	d_key3.resize(MAXPARTICLENUM);
+	d_key4.resize(MAXPARTICLENUM);
+	d_key5.resize(MAXPARTICLENUM);
+	d_key6.resize(MAXPARTICLENUM);
+	d_key7.resize(MAXPARTICLENUM);
+
+	d_ParticleGridIdx.copyToDevice(d_key1);
+	d_ParticleGridIdx.copyToDevice(d_key2);
+	d_ParticleGridIdx.copyToDevice(d_key3);
+	d_ParticleGridIdx.copyToDevice(d_key4);
+	d_ParticleGridIdx.copyToDevice(d_key5);
+	d_ParticleGridIdx.copyToDevice(d_key6);
+	d_ParticleGridIdx.copyToDevice(d_key7);
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIdx()),
+		thrust::device_ptr<uint>(d_ParticleGridIdx() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL3>(d_CurPos()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key1()),
+		thrust::device_ptr<uint>(d_key1() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL3>(d_BeforePos()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key2()),
+		thrust::device_ptr<uint>(d_key2() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL3>(d_Vel()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key3()),
+		thrust::device_ptr<uint>(d_key3() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL3>(d_Normal()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key4()),
+		thrust::device_ptr<uint>(d_key4() + MAXPARTICLENUM),
+		thrust::device_ptr<uint>(d_Type()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key5()),
+		thrust::device_ptr<uint>(d_key5() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL>(d_Mass()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key6()),
+		thrust::device_ptr<uint>(d_key6() + MAXPARTICLENUM),
+		thrust::device_ptr<REAL>(d_Dens()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key7()),
+		thrust::device_ptr<uint>(d_key7() + MAXPARTICLENUM),
+		thrust::device_ptr<BOOL>(d_Flag()));
+
+	Dvector<uint> d_StateData;
+	d_StateData.resize(MAXPARTICLENUM);
+	d_StateData.memset(0);
+
+	StateCheck_D << <divup(MAXPARTICLENUM, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_CurPos(), d_StateData());
+
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), MAXPARTICLENUM);
+
+	CUDA_CHECK(cudaMemcpy((void*)&_numParticles, (void*)(d_StateData() + MAXPARTICLENUM - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+
+	d_ParticleGridIdx.free();
+	d_StateData.free();
+}
+
+void FLIP3D_Cuda::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
+{
+	thrust::exclusive_scan(thrust::device_ptr<uint>(input),
+		thrust::device_ptr<uint>(input + (numElements)),
+		thrust::device_ptr<uint>(output));
+}
+
 void FLIP3D_Cuda::SolvePICFLIP()
 {
 	ResetCell_kernel();
@@ -474,7 +618,7 @@ void FLIP3D_Cuda::ResetCell_kernel()
 
 void FLIP3D_Cuda::TrasnferToGrid_kernel()
 {
-	TrasnferToGrid_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
+	TransferToGrid_D << <_grid->_cudaGridSize, _grid->_cudaBlockSize >> >
 		(_grid->d_Volumes, d_CurPos(), d_Vel(), d_Type(), d_Mass(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _gridRes, _numParticles);
 }
 
@@ -498,7 +642,6 @@ void FLIP3D_Cuda::ComputeLevelSet_kernel()
 {
 	ComputeLevelSet_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, d_CurPos(), d_Type(), d_Dens(), d_GridHash(), d_GridIdx(), d_CellStart(), d_CellEnd(), _dens, _gridRes);
 }
-
 
 void FLIP3D_Cuda::SolvePressure() 
 {
@@ -904,22 +1047,35 @@ void FLIP3D_Cuda::FindCellStart_kernel(void)
 		(d_GridHash(), d_CellStart(), d_CellEnd(), _numParticles);
 }
 
+void FLIP3D_Cuda::InitHostMem(void)
+{
+	h_CurPos.resize(MAXPARTICLENUM, make_REAL3(-1.0, -1.0, -1.0));
+	h_BeforePos.resize(MAXPARTICLENUM, make_REAL3(-1.0, -1.0, -1.0));
+	h_Vel.resize(MAXPARTICLENUM);
+	h_Normal.resize(MAXPARTICLENUM);
+	h_Type.resize(MAXPARTICLENUM);
+	h_Mass.resize(MAXPARTICLENUM);
+	h_Dens.resize(MAXPARTICLENUM);
+	h_KernelDens.resize(MAXPARTICLENUM);
+	h_Flag.resize(MAXPARTICLENUM);
+}
+
 void FLIP3D_Cuda::InitDeviceMem(void)
 {
 	//Particles
-	d_BeforePos.resize(_numParticles);							d_BeforePos.memset(0);
-	d_CurPos.resize(_numParticles);								d_CurPos.memset(0);
-	d_Vel.resize(_numParticles);								d_Vel.memset(0);
-	d_Normal.resize(_numParticles);								d_Normal.memset(0);
-	d_Type.resize(_numParticles);								d_Type.memset(0);
-	d_Mass.resize(_numParticles);								d_Mass.memset(0);
-	d_Dens.resize(_numParticles);								d_Dens.memset(0);
-	d_KernelDens.resize(_numParticles);							d_KernelDens.memset(0);
-	d_Flag.resize(_numParticles);								d_Flag.memset(0);
+	d_BeforePos.resize(MAXPARTICLENUM);							d_BeforePos.memset(0);
+	d_CurPos.resize(MAXPARTICLENUM);								d_CurPos.memset(0);
+	d_Vel.resize(MAXPARTICLENUM);								d_Vel.memset(0);
+	d_Normal.resize(MAXPARTICLENUM);								d_Normal.memset(0);
+	d_Type.resize(MAXPARTICLENUM);								d_Type.memset(0);
+	d_Mass.resize(MAXPARTICLENUM);								d_Mass.memset(0);
+	d_Dens.resize(MAXPARTICLENUM);								d_Dens.memset(0);
+	d_KernelDens.resize(MAXPARTICLENUM);							d_KernelDens.memset(0);
+	d_Flag.resize(MAXPARTICLENUM);								d_Flag.memset(0);
 
 	//Hash
-	d_GridHash.resize(_numParticles);							d_GridHash.memset(0);
-	d_GridIdx.resize(_numParticles);							d_GridIdx.memset(0);
+	d_GridHash.resize(MAXPARTICLENUM);							d_GridHash.memset(0);
+	d_GridIdx.resize(MAXPARTICLENUM);							d_GridIdx.memset(0);
 	d_CellStart.resize(_gridRes * _gridRes * _gridRes);			d_CellStart.memset(0);
 	d_CellEnd.resize(_gridRes * _gridRes * _gridRes);			d_CellEnd.memset(0);
 
@@ -972,8 +1128,8 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 void FLIP3D_Cuda::CopyToDevice(void)
 {
 	//Particles
-	d_BeforePos.copyFromHost(h_BeforePos);
 	d_CurPos.copyFromHost(h_CurPos);
+	d_BeforePos.copyFromHost(h_BeforePos);
 	d_Vel.copyFromHost(h_Vel);
 	d_Normal.copyFromHost(h_Normal);
 	d_Type.copyFromHost(h_Type);
@@ -998,8 +1154,8 @@ void FLIP3D_Cuda::CopyToDevice(void)
 void FLIP3D_Cuda::CopyToHost(void)
 {
 	//Particles
-	d_BeforePos.copyToHost(h_BeforePos);
 	d_CurPos.copyToHost(h_CurPos);
+	d_BeforePos.copyToHost(h_BeforePos);
 	d_Vel.copyToHost(h_Vel);
 	d_Normal.copyToHost(h_Normal);
 	d_Type.copyToHost(h_Type);
@@ -1040,23 +1196,23 @@ void FLIP3D_Cuda::draw(void)
 		uint type = h_Type[i];
 		BOOL flag = h_Flag[i];
 
-		if (h_Flag[i]) {
-			//glPointSize(3.0);
-			glColor3f(1.0f, 0.0f, 0.0f);
-		}
-		else
-		{
-			//glPointSize(1.0);
-			//continue;
-			glColor3f(0.0f, 0.0f, 1.0f);
-		}
+		//if (h_Flag[i]) {
+		//	//glPointSize(3.0);
+		//	glColor3f(1.0f, 0.0f, 0.0f);
+		//}
+		//else
+		//{
+		//	//glPointSize(1.0);
+		//	//continue;
+		//	glColor3f(0.0f, 0.0f, 1.0f);
+		//}
 
 		if (type == WALL ) {
 			continue;
 			glColor3f(1.0f, 1.0f, 1.0f);
 		}
-		//else
-		//	glColor3f(0.0f, 1.0f, 1.0f);
+		else
+			glColor3f(0.0f, 1.0f, 1.0f);
 		////glColor3f(1.0, 1.0, 1.0);
 		
 		////////////cout << h_Dens[i] << endl;
@@ -1075,6 +1231,7 @@ void FLIP3D_Cuda::draw(void)
 		//glVertex3d(position.x + velocity.x * c, position.y + velocity.y * c, position.z + velocity.z * c);
 		//glEnd();
 	}
+
 	//printf("cnt: %d\n", cnt);
 
 #if GRIDRENDER

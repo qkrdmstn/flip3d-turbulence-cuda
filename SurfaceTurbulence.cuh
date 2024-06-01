@@ -132,7 +132,7 @@ __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos,
 	}
 }
 
-__global__ void StateCheck_D(REAL3* finePos, uint* particleGridIdx, uint* stateData, uint numCoarseParticles)
+__global__ void StateCheck_D(REAL3* finePos, uint* stateData, uint numCoarseParticles)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numCoarseParticles)

@@ -85,8 +85,6 @@ public: //Host
 	vector<REAL3> h_TempNormal;
 	vector<REAL3> h_TempPos;
 	vector<REAL3> h_Tangent;
-	vector<REAL> h_KernelDens;
-	vector<REAL> h_NeighborWeightSum;
 	vector<BOOL> h_Flag;
 
 	//Wave Simulation
