@@ -32,7 +32,7 @@ void SortParticle_kernel(uint* d_GridHash, uint* d_GridIdx, uint _numTotalPartic
 
 void FindCellStart_kernel(uint* d_GridHash, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles);
 
-void ComputeLevelset_kernel(REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res, uint hashRes);
+void ComputeLevelset_kernel(REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res, uint hashRes, uint _numCoarseParticles, REAL3* fineNormal);
 
 class MarchingCubes_CUDA
 {

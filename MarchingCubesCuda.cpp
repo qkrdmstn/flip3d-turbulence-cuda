@@ -119,7 +119,7 @@ void MarchingCubes_CUDA::init(FLIP3D_Cuda* fluid, SurfaceTurbulence* turbulence,
 
 	_fluid = fluid;
 	_turbulence = turbulence;
-	hashRes = _fluid->_gridRes;
+	hashRes = _turbulence->maintenanceParam._fineRes;
 
 	memSize = sizeof(REAL3) * _numVoxel;
 	cudaMalloc((void**)&d_gridPosition, memSize);
@@ -350,7 +350,7 @@ void MarchingCubes_CUDA::Smoothing(void)
 
 void MarchingCubes_CUDA::MarchingCubes()
 {
-	_numTotalParticles = _fluid->_numParticles /*+ _turbulence->_numFineParticles*/;
+	_numTotalParticles = _fluid->_numParticles + _turbulence->_numFineParticles;
 	printf("Num of MC Particles %d\n", _numTotalParticles);
 	
 	unsigned int memSize = sizeof(REAL3) * _numTotalParticles;
@@ -369,12 +369,12 @@ void MarchingCubes_CUDA::MarchingCubes()
 
 	memSize = sizeof(uint) * _numVoxel;
 	cudaMemset(d_CellStart, 0, memSize);
-
 	cudaMemset(d_CellEnd, 0, memSize);
 
 	CopyToTotalParticles_kernel(_fluid, _turbulence, d_TotalParticles, d_Type, _numTotalParticles);
 	SetHashTable_kernel();
-	ComputeLevelset_kernel(d_gridPosition, d_TotalParticles, d_Type, _volume, d_GridIdx,d_CellStart, d_CellEnd, _numTotalParticles, _gridSize, hashRes);
+
+	ComputeLevelset_kernel(d_gridPosition, d_TotalParticles, d_Type, _volume, d_GridIdx,d_CellStart, d_CellEnd, _numTotalParticles, _gridSize, hashRes, _fluid->_numParticles, _turbulence->d_SurfaceNormal());
 	surfaceRecon(0.0f);
 	Smoothing();
 

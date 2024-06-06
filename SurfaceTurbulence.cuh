@@ -1253,12 +1253,14 @@ __global__ void EvolveWave_D(REAL* waveDtH, REAL* waveH, REAL* laplacian, REAL* 
 	waveH[idx] = fmax(-waveParam._waveMaxAmplitude, fmin(waveH[idx], waveParam._waveMaxAmplitude));
 }
 
-__global__ void SetDisplayParticles_D(REAL3* displayPos, REAL3* finePos, REAL3* surfaceNormal, REAL* waveH, uint numFineParticles)
+__global__ void SetDisplayParticles_D(REAL3* displayPos, REAL3* finePos, REAL3* surfaceNormal, REAL* waveH, uint numFineParticles, MaintenanceParam maintenanceParam)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
 	if (idx >= numFineParticles)
 		return;
 
 	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx];
+	REAL cellSize = 1.0 / maintenanceParam._fineRes;
+	displayPos[idx] = displayPos[idx] - surfaceNormal[idx] * cellSize * 4;
 }
 #endif

@@ -18,12 +18,12 @@ float _trans_y = 0.14f; // y축 이동
 int _last_x = 0; // 이전 마우스 클릭 x위치
 int _last_y = -0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
-bool _simulation = false;
+bool _simulation = true;
 
 bool _fluidFlag = false;
 bool _turbulenceDisplayFlag = false;
-bool _turbulenceBaseFlag = true;
-bool _surfaceReconstructionFlag = false;
+bool _turbulenceBaseFlag = false;
+bool _surfaceReconstructionFlag = true;
 
 int curParam = 1;
 
@@ -94,9 +94,9 @@ void Update(void)
 
 		_engine->simulation(advection);
 
-		//if (_frame == 600) {
-		//	exit(0);
-		//}
+		if (_frame == 600) {
+			exit(0);
+		}
 		_frame++;
 	}
 	glutPostRedisplay();

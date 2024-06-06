@@ -560,7 +560,7 @@ void CopyToTotalParticles2(REAL3* totalParticles, uint* d_TotalType, REAL3* part
 
 	uint index = idx + numFlipParticles;
 	totalParticles[index] = particles[idx];
-	d_TotalType[index] = FLUID;
+	d_TotalType[index] = FINE;
 }
 
 void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbulence, REAL3* d_TotalParticles, uint* d_Type, uint _numTotalParticles)
@@ -568,8 +568,8 @@ void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbul
 	CopyToTotalParticles1 << < divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_TotalParticles, d_Type, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->_numParticles);
 
-	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-	//	(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
+	CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_TotalParticles, d_Type, _turbulence->d_DisplayPos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 
 	//CopyToTotalParticles2 << < divup(_turbulence->_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 	//	(d_TotalParticles, d_Type, _turbulence->d_Pos(), _turbulence->_numFineParticles, _fluid->_numParticles);
@@ -609,7 +609,7 @@ __device__ float hypotLength(float3 p)
 	return (float)hypot(hypot((double)p.x, (double)p.y), (double)p.z);
 }
 
-__global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numParticles, uint3 res, uint hashRes, float3 pos0, float3 gridLength)
+__global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* gridIdx, uint* cellStart, uint* cellEnd, uint numParticles, uint3 res, uint hashRes, uint _numCoarseParticles, REAL3* fineNormal)
 {
 	uint id = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
 	uint index = __mul24(id, blockDim.x) + threadIdx.x;
@@ -670,6 +670,12 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 						//}
 						continue;
 					}
+					//else if (type2 == FINE)
+					//{
+					//	int fineIdx = sortedIdx/* - _numCoarseParticles*/;
+					//	pos2 -= fineNormal[fineIdx] * cellSize * 2.0;
+					//	relPos = pos - pos2;
+					//}
 					float lengthSquared = (relPos.x * relPos.x + relPos.y * relPos.y + relPos.z * relPos.z);
 					float w = fmax(1.0f - lengthSquared / (h * h), 0.0f);
 					r += radius * w;
@@ -679,12 +685,6 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 				}
 			}
 		}END_FOR;
-
-		//printf("wsum %f avgPos: %f %f %f Pos: %f %f %f Radius%f\n", wsum, avgPos.x, avgPos.y, avgPos.z, pos.x, pos.y, pos.z, r);
-		//printf("wsum: %f\n", wsum);
-		//printf("avgPos: %f %f %f\n", avgPos.x, avgPos.y, avgPos.z);
-		//printf("Pos: %f %f %f \n", pos.x, pos.y, pos.z);
-		//printf("Radius %f cnt %d\n", r/(float)cnt, cnt);
 
 		if (wsum) {
 			r /= wsum;
@@ -710,16 +710,13 @@ __global__ void ComputeLevelSetKernel( REAL3* gridPosition, REAL3* particles, ui
 	}
 }
 
-void ComputeLevelset_kernel(REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res, uint hashRes)
+void ComputeLevelset_kernel(REAL3* gridPosition, REAL3* particles, uint* d_TotalType, REAL* levelSet, uint* d_GridIdx, uint* d_CellStart, uint* d_CellEnd, uint _numTotalParticles, uint3 res, uint hashRes, uint _numCoarseParticles, REAL3* fineNormal)
 {
-	REAL3 pos0 = make_float3(0.0f, 0.0f, 0.0f);
-	REAL3 length = make_float3(1.0f, 1.0f, 1.0f);
-
 	int numCells = res.x * res.y * res.z;
 	int threads = 256;
 	dim3 grid((numCells + threads - 1) / threads, 1, 1);
 
-	ComputeLevelSetKernel << <grid, threads >> > (gridPosition, particles, d_TotalType, levelSet, d_GridIdx, d_CellStart, d_CellEnd, _numTotalParticles, res, hashRes, pos0, length);
+	ComputeLevelSetKernel << <grid, threads >> > (gridPosition, particles, d_TotalType, levelSet, d_GridIdx, d_CellStart, d_CellEnd, _numTotalParticles, res, hashRes, _numCoarseParticles, fineNormal);
 	cudaThreadSynchronize();
 }
 

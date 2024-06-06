@@ -96,8 +96,8 @@ void FLIP3D_Cuda::PlaceObjects()
 	PlaceWalls();
 
 	//WaterDropTest();
-	//DamBreakTest();
-	RotateBoxesTest();
+	DamBreakTest();
+	//RotateBoxesTest();
 	//MoveBoxTest();
 }
 
@@ -158,16 +158,6 @@ void FLIP3D_Cuda::PlaceWalls()
 	obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
 	obj.p[0].z = 1.0 - _wallThick;	obj.p[1].z = 1.0;
 	objects.push_back(obj);
-
-
-	//// Back Wall
-	//obj.type = WALL;
-	//obj.shape = BOX;
-	//obj.material = GLASS;
-	//obj.p[0].x = 0.5;				obj.p[1].x = 1.0;
-	//obj.p[0].y = 0.0;				obj.p[1].y = 1.0;
-	//obj.p[0].z = 0.5;	obj.p[1].z = 1.0;
-	//objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::WaterDropTest()
@@ -272,9 +262,9 @@ void FLIP3D_Cuda::DamBreakTest()
 void FLIP3D_Cuda::RotateBoxesTest(void)
 {
 	OBB box;
-	box._center = make_REAL3(0.2, 0.06, 0.5);
+	box._center = make_REAL3(0.3, 0.075, 0.5);
 	box._center0 = box._center;
-	box._radius = make_REAL3(0.12, 0.12, 0.06);
+	box._radius = make_REAL3(0.1, 0.15, 0.06);
 	computeCorners(box);
 	h_Boxes.push_back(box);
 
@@ -288,7 +278,7 @@ void FLIP3D_Cuda::RotateBoxesTest(void)
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 

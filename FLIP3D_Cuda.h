@@ -15,6 +15,7 @@
 #define AIR		0
 #define FLUID	1
 #define WALL	2
+#define FINE	3
 
 #define BOX		0
 #define SPHERE	1
@@ -25,7 +26,7 @@
 
 #define PI          3.141592
 
-#define MAXPARTICLENUM 50000
+#define MAXPARTICLENUM 200000
 
 #define GRIDRENDER 0
 using namespace std;

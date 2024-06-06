@@ -47,15 +47,27 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 void SurfaceTurbulence::InitWaveParam(void)
 {
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 20.f;
-	waveParam._waveDamping = 0.9f;
-	waveParam._waveSeedFreq = 100;
+	waveParam._waveSpeed = maintenanceParam._outerRadius * 40.0f;
+	waveParam._waveDamping = 0.5f;
+	waveParam._waveSeedFreq = 4;
 	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 0.25;
-	waveParam._waveMaxFreq = 400;
-	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.065; // any curvature higher than this value will seed waves
-	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
-	waveParam._waveSeedStepSizeRatioOfMax = 0.05; // higher values will result in faster and more violent wave seeding
+	waveParam._waveMaxFreq = 800;
+	waveParam._waveMaxSeedingAmplitude = 0.1; // as multiple of max amplitude
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.00025; // any curvature higher than this value will seed waves
+	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.0001; // any curvature higher than this value will seed waves
+	waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
+
+	printf("c: %f r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
+	//waveParam._dt = 0.005;
+	//waveParam._waveSpeed = 0.625;
+	//waveParam._waveDamping = 0.1f;
+	//waveParam._waveSeedFreq = 4;
+	//waveParam._waveMaxAmplitude = 0.02f;
+	//waveParam._waveMaxFreq = 800;
+	//waveParam._waveMaxSeedingAmplitude = 0.3; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.015; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -367,9 +379,9 @@ void SurfaceTurbulence::WaveSimulation_kernel(int step)
 	ComputeWaveNormal_kernel();
 	ComputeLaplacian_kernel();
 	EvolveWave_kernel();
-	
+
 	SetDisplayParticles_D <<<divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles);
+		(d_DisplayPos(), d_Pos(), d_SurfaceNormal(), d_WaveH(), _numFineParticles, maintenanceParam);
 }
 
 void SurfaceTurbulence::SetHashTable_kernel(void)
@@ -585,11 +597,11 @@ void SurfaceTurbulence::drawFineParticles(void)
 		//glEnd();
 
 		////general visualize
-		glColor3f(0.0f, 1.0f, 1.0f);
+		//glColor3f(0.0f, 1.0f, 1.0f);
 
-		////////Curvature visualize
-		//REAL3 color = ScalarToColor(curvature * 1000);
-		//glColor3f(color.x, color.y, color.z);
+		//////Curvature visualize
+		REAL3 color = ScalarToColor(curvature * 1000);
+		glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);

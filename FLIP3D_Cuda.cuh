@@ -214,20 +214,20 @@ __global__ void CollisionMovingBox_D(OBB* boxes, REAL3* _pos, REAL3* _vel, uint*
 			new_phi = phi + Dot(((vel - box_vel) * dt), collision_normal);
 			if (new_phi < 0.0f)
 			{
-				//collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
-				//particle_normal_variation = Dot(vel, collision_normal);
-				//collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
-				//particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
-				//new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
-				//relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
-				//new_relative_tangential_vel = relative_tangential_vel
-				//	* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
+				collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
+				particle_normal_variation = Dot(vel, collision_normal);
+				collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
+				particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
+				new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
+				relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
+				new_relative_tangential_vel = relative_tangential_vel
+					* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
 
-				//new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
-				//REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
-				//_vel[idx] = new_vel;
+				new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
+				REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
+				_vel[idx] = new_vel;
 
-				_pos[idx] = make_REAL3(-1, -1, -1);
+				//_pos[idx] = make_REAL3(-1, -1, -1);
 			}
 		}
 	}
