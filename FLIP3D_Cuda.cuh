@@ -233,6 +233,63 @@ __global__ void CollisionMovingBox_D(OBB* boxes, REAL3* _pos, REAL3* _vel, uint*
 	}
 }
 
+__global__ void CollisionMovingSphere_D(BoundingSphere* spheres, REAL3* _pos, REAL3* _vel, uint* type, uint numParticles, uint numSphere, REAL dt)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numParticles)
+		return;
+	if (type[idx] != FLUID) return;
+
+	REAL delta_tau = 0.01;
+	REAL new_phi = 0.0, phi = 0.0;
+	REAL friction_coeff = 0.3;
+	REAL collision_objects_normal_variation = 0.0;
+	REAL particle_normal_variation = 0.0;
+	REAL new_particle_noraml_variaion = 0.0;
+
+	REAL3 velocity_collision_objects = make_REAL3(0, 0, 0);
+	REAL3 collision_objects_tangential_variation = make_REAL3(0, 0, 0);
+	REAL3 particle_tangential_variation = make_REAL3(0, 0, 0);
+	REAL3 relative_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 new_relative_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 new_particle_tangential_vel = make_REAL3(0, 0, 0);
+	REAL3 collision_normal = make_REAL3(0, 0, 0);
+	REAL offset = 0.01;
+
+	for (int i = 0; i < numSphere; i++) {
+
+		for (int j = 0; j < 20; j++) {
+			REAL3 box_vel = spheres[i]._center - spheres[i]._center0;
+
+			REAL3 pos = _pos[idx];
+			phi = getDist(spheres[i], pos);
+			REAL3 vel = _vel[idx];
+
+			collision_normal.x = getDist(spheres[i], make_REAL3(pos.x + offset, pos.y, pos.z)) - getDist(spheres[i], make_REAL3(pos.x - offset, pos.y, pos.z));
+			collision_normal.y = getDist(spheres[i], make_REAL3(pos.x, pos.y + offset, pos.z)) - getDist(spheres[i], make_REAL3(pos.x, pos.y - offset, pos.z));
+			collision_normal.z = getDist(spheres[i], make_REAL3(pos.x, pos.y, pos.z + offset)) - getDist(spheres[i], make_REAL3(pos.x, pos.y, pos.z - offset));
+			Normalize(collision_normal);
+
+			new_phi = phi + Dot(((vel - box_vel) * dt), collision_normal);
+			if (new_phi < 0.0f)
+			{
+				collision_objects_normal_variation = Dot(velocity_collision_objects, collision_normal);
+				particle_normal_variation = Dot(vel, collision_normal);
+				collision_objects_tangential_variation = velocity_collision_objects - (collision_normal * collision_objects_normal_variation);
+				particle_tangential_variation = vel - (collision_normal * particle_normal_variation);
+				new_particle_noraml_variaion = particle_normal_variation - new_phi / delta_tau;
+				relative_tangential_vel = particle_tangential_variation - collision_objects_tangential_variation;
+				new_relative_tangential_vel = relative_tangential_vel
+					* fmax(0.0, 1.0 - (friction_coeff * ((new_particle_noraml_variaion - particle_normal_variation) / Length(relative_tangential_vel))));
+
+				new_particle_tangential_vel = collision_objects_tangential_variation + new_relative_tangential_vel;
+				REAL3 new_vel = (collision_normal * new_particle_noraml_variaion) + new_particle_tangential_vel;
+				_vel[idx] = new_vel;
+			}
+		}
+	}
+}
+
 __global__ void InsertFLIPParticles_D(REAL3* curPos, REAL3* beforePos, REAL3* vel, REAL3* normal, uint* type, REAL* mass, REAL* dens, REAL* kernelDens, BOOL* flag, uint numParticles, REAL maxDens, REAL3* newPos, REAL3* newVel, REAL* newMass, uint numInsert)
 {
 	uint idx = threadIdx.x + blockDim.x * blockIdx.x;

@@ -1260,7 +1260,7 @@ __global__ void SetDisplayParticles_D(REAL3* displayPos, REAL3* finePos, REAL3* 
 		return;
 
 	displayPos[idx] = finePos[idx] + surfaceNormal[idx] * waveH[idx];
-	REAL cellSize = 1.0 / maintenanceParam._fineRes;
-	displayPos[idx] = displayPos[idx] - surfaceNormal[idx] * cellSize * 4;
+	//REAL cellSize = 1.0 / maintenanceParam._fineRes;
+	//displayPos[idx] = displayPos[idx] - surfaceNormal[idx] * cellSize * 3;
 }
 #endif

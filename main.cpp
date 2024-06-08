@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define SCREEN_CAPTURE 0
+#define SCREEN_CAPTURE 1
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -18,7 +18,7 @@ float _trans_y = 0.14f; // y축 이동
 int _last_x = 0; // 이전 마우스 클릭 x위치
 int _last_y = -0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
-bool _simulation = true;
+bool _simulation = false;
 
 bool _fluidFlag = false;
 bool _turbulenceDisplayFlag = false;

@@ -14,6 +14,14 @@ struct OBB
 	BOOL flag;
 };
 
+struct BoundingSphere
+{
+	REAL3 _center;
+	REAL3 _center0;
+	REAL _radius;
+	BOOL flag;
+};
+
 static int OBB_NODE_QUAD_TABLE[6][4] =
 {
    { 0, 4, 6, 2 },
@@ -328,4 +336,54 @@ static void  __inline__ __host__  LinearMovingBox_kernel(OBB& box)
 
 	computeCorners(box);
 }
+
+static double __inline__ __host__ __device__ getDist(BoundingSphere& sphere, REAL3& pos)
+{
+	REAL3 center = sphere._center;
+
+	REAL distSquare = pow(center.x - pos.x, 2) + pow(center.y - pos.y, 2) + pow(center.z - pos.z, 2);
+	REAL dist = sqrt(distSquare) - sphere._radius;
+
+	return dist;
+}
+
+static void  __inline__ __host__  LinearMovingSphere_kernel(BoundingSphere& sphere)
+{
+	sphere._center0 = sphere._center;
+	if (sphere._center.x < 0.25)
+		sphere.flag = true;
+	else if (sphere._center.x > 0.75)
+		sphere.flag = false;
+
+	REAL dt = 0.6e-2;
+	REAL3 vel = make_REAL3(0.5, 0.0, 0.0) * dt;
+	if (!sphere.flag)
+		vel *= -1;
+	REAL translate[4][4];
+
+	// initialize matrix
+	SetIdentity(translate);
+
+	// compute translate matrix
+	translate[0][3] = vel.x; translate[1][3] = vel.y; translate[2][3] = vel.z;
+
+	double undeformed_position[4], deformed_position[4];
+
+	undeformed_position[0] = sphere._center.x;
+	undeformed_position[1] = sphere._center.y;
+	undeformed_position[2] = sphere._center.z;
+	undeformed_position[3] = 1.0;
+
+	// transformation matrix
+	for (int j = 0; j < 4; j++) {
+		deformed_position[j] = 0.0;
+		for (int k = 0; k < 4; k++) {
+			deformed_position[j] += translate[j][k] * undeformed_position[k];
+		}
+	}
+
+	// update position
+	sphere._center = make_REAL3(deformed_position[0], deformed_position[1], deformed_position[2]);
+}
+
 #endif

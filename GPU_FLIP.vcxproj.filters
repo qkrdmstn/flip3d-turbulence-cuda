@@ -50,7 +50,7 @@
     <ClInclude Include="WeightKernels.cuh">
       <Filter>헤더</Filter>
     </ClInclude>
-    <ClInclude Include="BoundingBox.h">
+    <ClInclude Include="LevelSetObject.h">
       <Filter>헤더</Filter>
     </ClInclude>
     <ClInclude Include="defines.h">

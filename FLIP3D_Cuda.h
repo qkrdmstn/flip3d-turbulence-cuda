@@ -7,7 +7,7 @@
 #include "thrust/sort.h"
 #include <GL/freeglut.h>
 #include "FLIPGrid.h"
-#include "BoundingBox.h"
+#include "LevelSetObject.h"
 #include <stdio.h>
 
 #define BLOCK_SIZE 1024
@@ -55,8 +55,6 @@ public:		//Device
 	Dvector<REAL> d_KernelDens;
 
 	Dvector<BOOL> d_Flag;
-
-
 #if GRIDRENDER
 	//grid visualize
 	Dvector<REAL3> d_gridPos;
@@ -67,9 +65,6 @@ public:		//Device
 	Dvector<REAL> d_gridDiv;
 	Dvector<uint> d_gridContent;
 #endif
-	//OBB
-	Dvector<OBB> d_Boxes;
-
 public:		//Host
 	//Particle
 	vector<REAL3> h_CurPos;
@@ -93,8 +88,6 @@ public:		//Host
 	vector<REAL> h_gridDiv;
 	vector<uint> h_gridContent;
 #endif
-	//OBB
-	vector<OBB> h_Boxes;
 
 public:		//Hash
 	Dvector<uint> d_GridHash;
@@ -116,9 +109,18 @@ public:
 
 	REAL _cellPhysicalSize; //hash table
 
-public:
+public: //Scene Setting
 	vector<Object> objects;
+
+	//OBB
+	vector<OBB> h_Boxes;
+	Dvector<OBB> d_Boxes;
 	uint _numBoxes;
+
+	//Sphere
+	vector<BoundingSphere> h_Spheres;
+	Dvector<BoundingSphere> d_Spheres;
+	uint _numSpheres;
 
 public:
 	FLIP3D_Cuda();
@@ -134,10 +136,13 @@ public:		//Initialize
 	void ParticleInit(void);
 	void PlaceObjects(void);
 	void PlaceWalls(void);
+
+public: //Scene Setting
 	void WaterDropTest(void);
 	void DamBreakTest(void);
 	void RotateBoxesTest(void);
 	void MoveBoxTest(void);
+	void MoveSphereTest(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
 	void ComputeWallParticleNormal_kernel(void);
 
@@ -145,7 +150,7 @@ public:		//Simulation
 	void ResetCell_kernel(void);
 	void ComputeParticleDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void CollisionMovingBox_kernel(REAL dt);
+	void CollisionMovingObject_kernel(REAL dt);
 	void SolvePICFLIP(void);
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);
@@ -195,7 +200,7 @@ public:	//Cuda
 public: 
 	void GridValueVisualize(void);
 	void draw(void);
-	void drawOBB(void);
+	void drawBoundingObject(void);
 	REAL3 ScalarToColor(double val);
 
 };

@@ -16,7 +16,7 @@
     <ClCompile Include="MarchingCubesCuda.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BoundingBox.h" />
+    <ClInclude Include="LevelSetObject.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="FLIP3D_Cuda.cuh" />
     <ClInclude Include="FLIP3D_Cuda.h" />

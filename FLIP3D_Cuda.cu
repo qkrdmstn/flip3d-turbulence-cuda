@@ -96,9 +96,10 @@ void FLIP3D_Cuda::PlaceObjects()
 	PlaceWalls();
 
 	//WaterDropTest();
-	DamBreakTest();
+	//DamBreakTest();
 	//RotateBoxesTest();
 	//MoveBoxTest();
+	MoveSphereTest();
 }
 
 void FLIP3D_Cuda::PlaceWalls()
@@ -312,6 +313,26 @@ void FLIP3D_Cuda::MoveBoxTest(void)
 	_numBoxes = h_Boxes.size();
 }
 
+void FLIP3D_Cuda::MoveSphereTest(void)
+{
+	BoundingSphere sphere;
+	sphere._center = make_REAL3(0.5, 0.06, 0.5);
+	sphere._center0 = sphere._center;
+	sphere._radius = 0.25;
+	sphere.flag = true;
+	h_Spheres.push_back(sphere);
+
+	Object obj;
+	obj.type = FLUID;
+	obj.shape = BOX;
+	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
+	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
+	objects.push_back(obj);
+
+	_numSpheres = h_Spheres.size();
+}
+
 void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 {
 	Object* inside_obj = NULL;
@@ -378,6 +399,17 @@ void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
 				}
 			}
 		}
+
+		for (int i = 0; i < h_Spheres.size(); i++)
+		{
+			for (auto sphere : h_Spheres)
+			{
+				if (getDist(sphere, make_REAL3(x, y, z)) < 0.0f)
+				{
+					inside_obj = NULL;
+				}
+			}
+		}
 	}
 
 	if (inside_obj) {
@@ -429,16 +461,28 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
 }
 
-void FLIP3D_Cuda::CollisionMovingBox_kernel(REAL dt)
+void FLIP3D_Cuda::CollisionMovingObject_kernel(REAL dt)
 {
-	d_Boxes.copyToHost(h_Boxes);
-	//LinearMovingBox_kernel(h_Boxes[0]);
-	RotateMovingBox_kernel(h_Boxes[0], true);
-	//RotateMovingBox_kernel(h_Boxes[1], false);
-	d_Boxes.copyFromHost(h_Boxes);
+	if (h_Boxes.size() > 0)
+	{
+		d_Boxes.copyToHost(h_Boxes);
+		//LinearMovingBox_kernel(h_Boxes[0]);
+		RotateMovingBox_kernel(h_Boxes[0], true);
+		//RotateMovingBox_kernel(h_Boxes[1], false);
+		d_Boxes.copyFromHost(h_Boxes);
 
-	CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-		(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+		CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+			(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+	}
+	if (h_Spheres.size() > 0)
+	{
+		d_Spheres.copyToHost(h_Spheres);
+		LinearMovingSphere_kernel(h_Spheres[0]);
+		d_Spheres.copyFromHost(h_Spheres);
+
+		CollisionMovingSphere_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+			(d_Spheres(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numSpheres, dt);
+	}
 }
 
 void FLIP3D_Cuda::InsertFLIPParticles_kernel(/*REAL3* d_newPos, REAL3* d_newVel, REAL* d_newMass, uint numInsertParticles*/)
@@ -457,11 +501,11 @@ void FLIP3D_Cuda::InsertFLIPParticles_kernel(/*REAL3* d_newPos, REAL3* d_newVel,
 	REAL pourRad = 0.1;
 
 	double w = _dens / _gridRes;
-	for (REAL x = w + w / 2.0; x < 1.0 - w / 2.0; x += w) {
+	for (REAL y = w + w / 2.0; y < 1.0 - w / 2.0; y += w) {
 		for (REAL z = w + w / 2.0; z < 1.0 - w / 2.0; z += w) {
-			if (hypot(x - pourPosX, z - pourPosZ) < pourRad) {
-				h_newPos.push_back(make_REAL3(x, 1.0 - _wallThick - 0.2, z));
-				h_newVel.push_back(make_REAL3(0.0f, -0.5 * _dens / _gridRes / 0.005f, 0.0f));
+			if (hypot(y - pourPosX, z - pourPosZ) < pourRad) {
+				h_newPos.push_back(make_REAL3(1.0 - _wallThick - 0.2, y, z));
+				h_newVel.push_back(make_REAL3(- _dens / _gridRes / 0.005f, 0.0f , 0.0f));
 				h_newMass.push_back(1.0);
 			}
 		}
@@ -1079,8 +1123,9 @@ void FLIP3D_Cuda::InitDeviceMem(void)
 	//d_gridContent.resize((_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));		d_gridContent.memset(0);
 	//printf("Size: %d\n", (_gridRes + 1) * (_gridRes + 1) * (_gridRes + 1));
 
-	//OBB
+	//Collision Object
 	d_Boxes.resize(h_Boxes.size());	d_Boxes.memset(0);
+	d_Spheres.resize(h_Spheres.size());	d_Spheres.memset(0);
 }
 
 void FLIP3D_Cuda::FreeDeviceMem(void)
@@ -1111,8 +1156,9 @@ void FLIP3D_Cuda::FreeDeviceMem(void)
 	//d_gridDiv.free();
 	//d_gridContent.free();
 
-	//OBB
+	//Collision Object
 	d_Boxes.free();
+	d_Spheres.free();
 }
 
 void FLIP3D_Cuda::CopyToDevice(void)
@@ -1139,6 +1185,7 @@ void FLIP3D_Cuda::CopyToDevice(void)
 
 	//OBB
 	d_Boxes.copyFromHost(h_Boxes);
+	d_Spheres.copyFromHost(h_Spheres);
 }
 
 void FLIP3D_Cuda::CopyToHost(void)
@@ -1165,6 +1212,7 @@ void FLIP3D_Cuda::CopyToHost(void)
 
 	//OBB
 	d_Boxes.copyToHost(h_Boxes);
+	d_Spheres.copyToHost(h_Spheres);
 }
 
 void FLIP3D_Cuda::GridValueVisualize(void)
@@ -1351,7 +1399,7 @@ void FLIP3D_Cuda::draw(void)
 	glPopMatrix();
 }
 
-void  FLIP3D_Cuda::drawOBB(void)
+void  FLIP3D_Cuda::drawBoundingObject(void)
 {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
@@ -1402,8 +1450,19 @@ void  FLIP3D_Cuda::drawOBB(void)
 		glVertex3f((GLfloat)corner[7].x, (GLfloat)corner[7].y, (GLfloat)corner[7].z);
 		glEnd();
 	}
-	glEnable(GL_LIGHTING);
 	glPopMatrix();
+	glEnable(GL_LIGHTING);
+
+	for (int i = 0; i < h_Spheres.size(); i++)
+	{
+		REAL3 center = h_Spheres[i]._center;
+		REAL radius = h_Spheres[i]._radius;
+		glPushMatrix();
+		glColor3f(1, 1, 1);
+		glTranslatef(center.x, center.y, center.z);
+		glutSolidSphere(radius, 20, 20);
+		glPushMatrix();
+	}
 }
 
 REAL3 FLIP3D_Cuda::ScalarToColor(double val)
