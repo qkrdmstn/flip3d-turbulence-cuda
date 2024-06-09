@@ -1197,7 +1197,7 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 	REAL ph = waveH[idx];
 	REAL3 waveN = waveNormal[idx];
 
-	if ((waveN.y <= DBL_EPSILON && waveN.y >= -DBL_EPSILON)) laplacian[idx] = 0.0f;
+	if ((waveN.z <= DBL_EPSILON && waveN.z >= -DBL_EPSILON)) laplacian[idx] = 0.0f;
 	else
 	{
 		int3 gridPos = calcGridPos(pos1, 1.0 / maintenanceParam._fineRes);

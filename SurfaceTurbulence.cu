@@ -70,10 +70,10 @@ void SurfaceTurbulence::InitWaveParam(void)
 	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
 
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 26.0f;
-	waveParam._waveDamping = 0.9f;
-	waveParam._waveSeedFreq = 140.0f;
-	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2.75;
+	waveParam._waveSpeed = 0.5;
+	waveParam._waveDamping = 0.5f;
+	waveParam._waveSeedFreq = 40.0;
+	waveParam._waveMaxAmplitude = 0.15f;
 	waveParam._waveMaxFreq = 600.0f;
 	waveParam._waveMaxSeedingAmplitude = 0.2f; // as multiple of max amplitude
 	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
@@ -611,7 +611,7 @@ void SurfaceTurbulence::drawFineParticles(void)
 		//glColor3f(0.0f, 1.0f, 1.0f);
 
 		//////Curvature visualize
-		REAL3 color = ScalarToColor(curvature * 1000);
+		REAL3 color = ScalarToColor(laplacian * 1000);
 		glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
@@ -654,7 +654,7 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		glColor3f(0.0f, 1.0f, 1.0f);
 
 		//// visualize
-		REAL3 color = ScalarToColor(fabs(seed) * 1000);
+		REAL3 color = ScalarToColor(fabs(waveH) * 1000);
 		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);
