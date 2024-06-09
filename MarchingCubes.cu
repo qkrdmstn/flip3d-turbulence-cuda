@@ -560,7 +560,7 @@ void CopyToTotalParticles2(REAL3* totalParticles, uint* d_TotalType, REAL3* part
 
 	uint index = idx + numFlipParticles;
 	totalParticles[index] = particles[idx];
-	d_TotalType[index] = FINE;
+	d_TotalType[index] = FLUID;
 }
 
 void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbulence, REAL3* d_TotalParticles, uint* d_Type, uint _numTotalParticles)

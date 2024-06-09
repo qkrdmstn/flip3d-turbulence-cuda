@@ -18,7 +18,7 @@ float _trans_y = 0.14f; // y축 이동
 int _last_x = 0; // 이전 마우스 클릭 x위치
 int _last_y = -0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
-bool _simulation = false;
+bool _simulation = true;
 
 bool _fluidFlag = false;
 bool _turbulenceDisplayFlag = false;
@@ -94,7 +94,7 @@ void Update(void)
 
 		_engine->simulation(advection);
 
-		if (_frame == 600) {
+		if (_frame == 1000) {
 			exit(0);
 		}
 		_frame++;

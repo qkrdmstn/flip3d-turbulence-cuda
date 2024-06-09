@@ -46,28 +46,39 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 
 void SurfaceTurbulence::InitWaveParam(void)
 {
+	//waveParam._dt = 0.005;
+	//waveParam._waveSpeed = maintenanceParam._outerRadius * 30.0f;
+	//waveParam._waveDamping = 0.5f;
+	//waveParam._waveSeedFreq = 150;
+	//waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 1.25;
+	//waveParam._waveMaxFreq = 400;
+	//waveParam._waveMaxSeedingAmplitude = 0.1; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
+
+	////printf("c: %f r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
+	//waveParam._dt = 0.005;
+	//waveParam._waveSpeed = 0.3; //0.625;
+	//waveParam._waveDamping = 0.5f; 
+	//waveParam._waveSeedFreq = 4;
+	//waveParam._waveMaxAmplitude = 0.1f; //0.05
+	//waveParam._waveMaxFreq = 600;
+	//waveParam._waveMaxSeedingAmplitude = 0.1; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
+
 	waveParam._dt = 0.005;
-	waveParam._waveSpeed = maintenanceParam._outerRadius * 30.0f;
-	waveParam._waveDamping = 0.5f;
-	waveParam._waveSeedFreq = 4;
-	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 0.25;
-	waveParam._waveMaxFreq = 200;
-	waveParam._waveMaxSeedingAmplitude = 0.1; // as multiple of max amplitude
+	waveParam._waveSpeed = maintenanceParam._outerRadius * 26.0f;
+	waveParam._waveDamping = 0.9f;
+	waveParam._waveSeedFreq = 140.0f;
+	waveParam._waveMaxAmplitude = maintenanceParam._outerRadius * 2.75;
+	waveParam._waveMaxFreq = 600.0f;
+	waveParam._waveMaxSeedingAmplitude = 0.2f; // as multiple of max amplitude
 	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
-	waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
-
-	//printf("c: %f r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
-	//waveParam._dt = 0.005;
-	//waveParam._waveSpeed = 0.625;
-	//waveParam._waveDamping = 0.1f;
-	//waveParam._waveSeedFreq = 4;
-	//waveParam._waveMaxAmplitude = 0.02f;
-	//waveParam._waveMaxFreq = 800;
-	//waveParam._waveMaxSeedingAmplitude = 0.3; // as multiple of max amplitude
-	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
-	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.015; // any curvature higher than this value will seed waves
-	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
+	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -643,7 +654,7 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		glColor3f(0.0f, 1.0f, 1.0f);
 
 		//// visualize
-		REAL3 color = ScalarToColor(waveH * 1000);
+		REAL3 color = ScalarToColor(fabs(seed) * 1000);
 		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);

@@ -1021,6 +1021,9 @@ __global__ void ComputeCurvature_D(REAL3* finePos, REAL* tempCurvature, REAL3* s
 			for (uint i = startIdx; i < endIdx; i++)
 			{
 				uint sortedIdx = fineGridIdx[i];
+
+				if (Dot(normal, surfaceNormal[sortedIdx]) < 0.0f)
+					continue;
 				REAL3 pos2 = finePos[sortedIdx];
 				curvature += Dot(normal, (pos - pos2)) * NeighborFineWeight(r, finePos, fineKernelDens, fineWeightSum, idx, sortedIdx);
 			}

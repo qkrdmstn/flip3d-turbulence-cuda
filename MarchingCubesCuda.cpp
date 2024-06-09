@@ -119,7 +119,7 @@ void MarchingCubes_CUDA::init(FLIP3D_Cuda* fluid, SurfaceTurbulence* turbulence,
 
 	_fluid = fluid;
 	_turbulence = turbulence;
-	hashRes = _turbulence->maintenanceParam._fineRes;
+	hashRes = _turbulence->maintenanceParam._coarseRes * 2;
 
 	memSize = sizeof(REAL3) * _numVoxel;
 	cudaMalloc((void**)&d_gridPosition, memSize);
