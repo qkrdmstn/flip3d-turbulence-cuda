@@ -183,10 +183,42 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.2;
+	obj.c.y = 0.15;
 	obj.c.z = 0.5;
 	obj.r = 0.02;
 	objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.75;
+	//obj.c.y = 0.2;
+	//obj.c.z = 0.5;
+	//obj.r = 0.02;
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.5;
+	//obj.c.y = 0.25;
+	//obj.c.z = 0.75;
+	//obj.r = 0.02;
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.25;
+	//obj.c.y = 0.3;
+	//obj.c.z = 0.5;
+	//obj.r = 0.02;
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.5;
+	//obj.c.y = 0.35;
+	//obj.c.z = 0.25;
+	//obj.r = 0.02;
+	//objects.push_back(obj);
 
 }
 
@@ -197,7 +229,7 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.25;
 	obj.p[0].z = 0.3;	obj.p[1].z = 0.8;
 	objects.push_back(obj);
 
@@ -263,9 +295,9 @@ void FLIP3D_Cuda::DamBreakTest()
 void FLIP3D_Cuda::RotateBoxesTest(void)
 {
 	OBB box;
-	box._center = make_REAL3(0.3, 0.075, 0.5);
+	box._center = make_REAL3(0.3, 0.15, 0.5);
 	box._center0 = box._center;
-	box._radius = make_REAL3(0.1, 0.15, 0.06);
+	box._radius = make_REAL3(0.1, 0.1, 0.06);
 	computeCorners(box);
 	h_Boxes.push_back(box);
 
@@ -306,7 +338,7 @@ void FLIP3D_Cuda::MoveBoxTest(void)
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.1;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.05;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
 
@@ -331,6 +363,65 @@ void FLIP3D_Cuda::MoveSphereTest(void)
 	objects.push_back(obj);
 
 	_numSpheres = h_Spheres.size();
+}
+
+void FLIP3D_Cuda::PourWater(void)
+{
+	vector<REAL3> h_newPos;
+	vector<REAL3> h_newVel;
+	vector<REAL> h_newMass;
+
+	h_newPos.clear();
+	h_newVel.clear();
+	h_newMass.clear();
+
+	REAL pourPosY = 0.8;
+	REAL pourPosZ = 0.5;
+	REAL pourRad = 0.1;
+
+	double w = _dens / _gridRes;
+	for (REAL y = w + w / 2.0; y < 1.0 - w / 2.0; y += w)
+	{
+		for (REAL z = w + w / 2.0; z < 1.0 - w / 2.0; z += w)
+		{
+			if (hypot(y - pourPosY, z - pourPosZ) < pourRad)
+			{
+				h_newPos.push_back(make_REAL3(z, y, 1.0 - _wallThick - 0.2));
+				h_newVel.push_back(make_REAL3(0.0f, 0.0f, -_dens / _gridRes / 0.005f));
+				h_newMass.push_back(1.0);
+			}
+		}
+	}
+	uint numInsertParticles = h_newPos.size();
+
+	Dvector<REAL3> d_newPos;
+	Dvector<REAL3> d_newVel;
+	Dvector<REAL> d_newMass;
+
+	d_newPos.resize(numInsertParticles);
+	d_newVel.resize(numInsertParticles);
+	d_newMass.resize(numInsertParticles);
+
+	d_newPos.memset(0);
+	d_newVel.memset(0);
+	d_newMass.memset(0);
+
+	d_newPos.copyFromHost(h_newPos);
+	d_newVel.copyFromHost(h_newVel);
+	d_newMass.copyFromHost(h_newMass);
+
+	//»ðÀÔ
+	InsertFLIPParticles_D << < divup(numInsertParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_CurPos(), d_BeforePos(), d_Vel(), d_Normal(), d_Type(), d_Mass(), d_Dens(), d_KernelDens(), d_Flag(), _numParticles, _maxDens,
+			d_newPos(), d_newVel(), d_newMass(), numInsertParticles);
+
+	_numParticles += numInsertParticles;
+
+	d_newPos.free();
+	d_newVel.free();
+	d_newMass.free();
+
+	cudaDeviceSynchronize();
 }
 
 void FLIP3D_Cuda::PushParticle(REAL x, REAL y, REAL z, uint type)
@@ -461,7 +552,7 @@ void FLIP3D_Cuda::ComputeExternalForce_kernel(REAL3& gravity, REAL dt)
 		(d_CurPos(), d_Vel(), gravity, _externalForce, _numParticles, dt);
 }
 
-void FLIP3D_Cuda::CollisionMovingObject_kernel(REAL dt)
+void FLIP3D_Cuda::MoveObject()
 {
 	if (h_Boxes.size() > 0)
 	{
@@ -470,16 +561,25 @@ void FLIP3D_Cuda::CollisionMovingObject_kernel(REAL dt)
 		RotateMovingBox_kernel(h_Boxes[0], true);
 		//RotateMovingBox_kernel(h_Boxes[1], false);
 		d_Boxes.copyFromHost(h_Boxes);
-
-		CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
-			(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
 	}
+
 	if (h_Spheres.size() > 0)
 	{
 		d_Spheres.copyToHost(h_Spheres);
 		LinearMovingSphere_kernel(h_Spheres[0]);
 		d_Spheres.copyFromHost(h_Spheres);
+	}
+}
 
+void FLIP3D_Cuda::CollisionObject_kernel(REAL dt)
+{
+	if (h_Boxes.size() > 0)
+	{
+		CollisionMovingBox_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+			(d_Boxes(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numBoxes, dt);
+	}
+	if (h_Spheres.size() > 0)
+	{
 		CollisionMovingSphere_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 			(d_Spheres(), d_CurPos(), d_Vel(), d_Type(), _numParticles, _numSpheres, dt);
 	}

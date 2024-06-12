@@ -1,6 +1,6 @@
 #include "FLIPEngine.h"
 
-#define RES 64
+#define RES 32
 #define RENDERRES 256
 #define TURBULENCE 1
 #define SURFACERECONSTRUCTION 1
@@ -20,15 +20,28 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 #endif
 }
 
-void	FLIPEngine::simulation(bool advection)
+void	FLIPEngine::simulation(bool advection, bool flag)
 {
 	printf("-------------- Step %d --------------\n", _frame);
 	if (advection || _frame == 0)
 	{
+//		if (flag)
+//		{
+//			_fluid->PourWater();
+//#if TURBULENCE
+//			_turbulence->InsertNewCoarseNeighbor_kernel();
+//#endif
+//		}
+
 		_fluid->SetHashTable_kernel();
 		_fluid->ComputeParticleDensity_kernel();
 		_fluid->ComputeExternalForce_kernel(_gravity, _dt);
-		_fluid->CollisionMovingObject_kernel(_dt);
+
+		if (_frame <= 60)
+		{
+			_fluid->MoveObject();
+			_fluid->CollisionObject_kernel(_dt);
+		}
 
 		_fluid->SolvePICFLIP();
 

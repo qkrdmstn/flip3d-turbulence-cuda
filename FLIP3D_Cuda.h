@@ -103,8 +103,11 @@ public:
 	uint _gridRes;
 
 	REAL _wallThick;
-	REAL _dens = 0.5;
-	REAL _maxDens = 92.9375;
+	//REAL _dens = 0.5;
+	//REAL _maxDens = 92.9375;
+	REAL _dens = 0.25;
+	REAL _maxDens = 107.750;
+
 	REAL3 _externalForce = make_REAL3(0, 0, 0);
 
 	REAL _cellPhysicalSize; //hash table
@@ -143,6 +146,7 @@ public: //Scene Setting
 	void RotateBoxesTest(void);
 	void MoveBoxTest(void);
 	void MoveSphereTest(void);
+	void PourWater(void);
 	void PushParticle(REAL x, REAL y, REAL z, uint type);
 	void ComputeWallParticleNormal_kernel(void);
 
@@ -150,7 +154,8 @@ public:		//Simulation
 	void ResetCell_kernel(void);
 	void ComputeParticleDensity_kernel(void);
 	void ComputeExternalForce_kernel(REAL3& extForce, REAL dt);
-	void CollisionMovingObject_kernel(REAL dt);
+	void MoveObject(void);
+	void CollisionObject_kernel(REAL dt);
 	void SolvePICFLIP(void);
 	void TrasnferToGrid_kernel(void);
 	void MarkWater_kernel(void);

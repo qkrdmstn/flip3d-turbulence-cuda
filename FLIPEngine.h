@@ -28,7 +28,7 @@ public:
 public:
 	void	init(REAL3& gravity, REAL dt);
 public:
-	void	simulation(bool advection);
+	void	simulation(bool advection, bool flag);
 	void	reset(void);
 public:
 	void	draw(bool flag1, bool flag2, bool flag3, bool flag4);

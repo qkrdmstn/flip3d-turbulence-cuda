@@ -21,8 +21,8 @@ unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
 bool _simulation = true;
 
 bool _fluidFlag = false;
-bool _turbulenceDisplayFlag = false;
 bool _turbulenceBaseFlag = false;
+bool _turbulenceDisplayFlag = false;
 bool _surfaceReconstructionFlag = true;
 
 int curParam = 1;
@@ -32,6 +32,7 @@ int _frame = 0;
 double fps = 0;
 
 bool advection = true;
+bool flag = false;
 FLIPEngine* _engine;
 
 void Init(void)
@@ -92,7 +93,7 @@ void Update(void)
 			frame = 0;
 		}
 
-		_engine->simulation(advection);
+		_engine->simulation(advection, flag);
 
 		if (_frame == 1000) {
 			exit(0);
@@ -406,6 +407,13 @@ void Keyboard(unsigned char key, int x, int y)
 			printf("advection Pause\n");
 		else
 			printf("advection Start\n");
+		break;
+	case 'v':
+		flag = !flag;
+		if (!flag)
+			printf("flag false\n");
+		else
+			printf("flag true\n");
 		break;
 	case 'o':
 		ParamSetting(false);

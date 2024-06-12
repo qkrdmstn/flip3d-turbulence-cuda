@@ -35,13 +35,15 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen; 
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.5; 
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
 	maintenanceParam._fineScaleLen = PI * (maintenanceParam._outerRadius + maintenanceParam._innerRadius) / SURFACE_DENSITY;
 
 	maintenanceParam._normalRadius = 0.5 * (maintenanceParam._outerRadius + maintenanceParam._innerRadius);
+	maintenanceParam._arrayMaxSize = _fluid->_numParticles * PER_PARTICLE;
+
 }
 
 void SurfaceTurbulence::InitWaveParam(void)
@@ -57,28 +59,29 @@ void SurfaceTurbulence::InitWaveParam(void)
 	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
 
-	////printf("c: %f r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
 	//waveParam._dt = 0.005;
-	//waveParam._waveSpeed = 0.3; //0.625;
-	//waveParam._waveDamping = 0.5f; 
-	//waveParam._waveSeedFreq = 4;
-	//waveParam._waveMaxAmplitude = 0.1f; //0.05
-	//waveParam._waveMaxFreq = 600;
-	//waveParam._waveMaxSeedingAmplitude = 0.1; // as multiple of max amplitude
-	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
-	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
-	//waveParam._waveSeedStepSizeRatioOfMax = 0.5; // higher values will result in faster and more violent wave seeding
+	//waveParam._waveSpeed = 0.5;
+	//waveParam._waveDamping = 0.9f;
+	//waveParam._waveSeedFreq = 50.0; //100
+	//waveParam._waveMaxAmplitude = 0.015;
+	//waveParam._waveMaxFreq = 600.0f;
+	//waveParam._waveMaxSeedingAmplitude = 0.2; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves 0.015
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
 
 	waveParam._dt = 0.005;
 	waveParam._waveSpeed = 0.5;
-	waveParam._waveDamping = 0.5f;
-	waveParam._waveSeedFreq = 40.0;
-	waveParam._waveMaxAmplitude = 0.15f;
+	waveParam._waveDamping = 1.0f;
+	waveParam._waveSeedFreq = 100.0;
+	waveParam._waveMaxAmplitude = 0.06;
 	waveParam._waveMaxFreq = 600.0f;
-	waveParam._waveMaxSeedingAmplitude = 0.2f; // as multiple of max amplitude
+	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
 	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
+
+	printf("c: %f, r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
 }
 
 void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint numElements)
@@ -91,26 +94,80 @@ void SurfaceTurbulence::ThrustScanWrapper_kernel(uint* output, uint* input, uint
 void SurfaceTurbulence::Initialize_kernel()
 {
 	_fluid->SetHashTable_kernel();
-
+	
 	Initialize_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(_fluid->d_CurPos(), _fluid->d_Type(), this->d_Pos(), this->d_ParticleGridIndex(), _fluid->_numParticles, _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), maintenanceParam);
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
-		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL3>(d_Pos()));
 	
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(this->d_Pos(), this->d_StateData(), _fluid->_numParticles);
 
-	ThrustScanWrapper_kernel(this->d_StateData(), this->d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
+	ThrustScanWrapper_kernel(this->d_StateData(), this->d_StateData(), maintenanceParam._arrayMaxSize);
 
-	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (_fluid->_numParticles * PER_PARTICLE) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (maintenanceParam._arrayMaxSize) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+}
+
+void SurfaceTurbulence::InsertNewCoarseNeighbor_kernel(void)
+{
+	_fluid->SetHashTable_kernel();
+
+	InsertNewCoarseNeighbor_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(_fluid->d_CurPos(), _fluid->d_Type(), this->d_Pos(), this->d_ParticleGridIndex(), _fluid->_numParticles, _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(),
+			d_GridIdx(), d_CellStart(), d_CellEnd(), _numFineParticles, d_Seed(), d_WaveSeedAmp(), d_WaveH(), d_WaveDtH(), maintenanceParam);
+
+	//Copy Key
+	Dvector<uint> d_key1, d_key2, d_key3, d_key4;
+	d_key1.resize(maintenanceParam._arrayMaxSize);
+	d_key2.resize(maintenanceParam._arrayMaxSize);
+	d_key3.resize(maintenanceParam._arrayMaxSize);
+	d_key4.resize(maintenanceParam._arrayMaxSize);
+
+	d_ParticleGridIndex.copyToDevice(d_key1);
+	d_ParticleGridIndex.copyToDevice(d_key2);
+	d_ParticleGridIndex.copyToDevice(d_key3);
+	d_ParticleGridIndex.copyToDevice(d_key4);
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (maintenanceParam._arrayMaxSize)),
+		thrust::device_ptr<REAL3>(d_Pos()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key1()),
+		thrust::device_ptr<uint>(d_key1() + (maintenanceParam._arrayMaxSize)),
+		thrust::device_ptr<REAL>(d_WaveSeedAmp()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key2()),
+		thrust::device_ptr<uint>(d_key2() + (maintenanceParam._arrayMaxSize)),
+		thrust::device_ptr<REAL>(d_WaveH()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key3()),
+		thrust::device_ptr<uint>(d_key3() + (maintenanceParam._arrayMaxSize)),
+		thrust::device_ptr<REAL>(d_WaveDtH()));
+
+	thrust::sort_by_key(thrust::device_ptr<uint>(d_key4()),
+		thrust::device_ptr<uint>(d_key4() + (maintenanceParam._arrayMaxSize)),
+		thrust::device_ptr<REAL>(d_Seed()));
+
+
+	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(d_Pos(), d_StateData(), _fluid->_numParticles);
+
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (maintenanceParam._arrayMaxSize));
+
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (maintenanceParam._arrayMaxSize) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+
+	d_key1.free();
+	d_key2.free();
+	d_key3.free();
+	d_key4.free();
 }
 
 void SurfaceTurbulence::Advection_kernel(void)
 {
 	_fluid->SetHashTable_kernel();
-	REAL r = 2.0 * maintenanceParam._coarseScaleLen;
+	REAL r = 2.0 * maintenanceParam._outerRadius;
 
 	ComputeCoarseDens_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 	(r, _fluid->d_CurPos(), _fluid->d_Type(), _fluid->d_KernelDens(), _fluid->d_GridIdx(), _fluid->d_CellStart(), _fluid->d_CellEnd(), 
@@ -208,10 +265,10 @@ void SurfaceTurbulence::InsertFineParticles(void)
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3, d_key4;
-	d_key1.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key2.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key3.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key4.resize(_fluid->_numParticles * PER_PARTICLE);
+	d_key1.resize(maintenanceParam._arrayMaxSize);
+	d_key2.resize(maintenanceParam._arrayMaxSize);
+	d_key3.resize(maintenanceParam._arrayMaxSize);
+	d_key4.resize(maintenanceParam._arrayMaxSize);
 
 	d_ParticleGridIndex.copyToDevice(d_key1);
 	d_ParticleGridIndex.copyToDevice(d_key2);
@@ -219,32 +276,32 @@ void SurfaceTurbulence::InsertFineParticles(void)
 	d_ParticleGridIndex.copyToDevice(d_key4);
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
-		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL3>(d_Pos()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key1()),
-		thrust::device_ptr<uint>(d_key1() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key1() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveSeedAmp()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key2()),
-		thrust::device_ptr<uint>(d_key2() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key2() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveH()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key3()),
-		thrust::device_ptr<uint>(d_key3() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key3() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveDtH()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key4()),
-		thrust::device_ptr<uint>(d_key4() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key4() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_Seed()));
 
 
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_Pos(), d_StateData(), _fluid->_numParticles);
 
-	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (maintenanceParam._arrayMaxSize));
 
-	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (_fluid->_numParticles * PER_PARTICLE) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (maintenanceParam._arrayMaxSize) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
 
 	d_key1.free();
 	d_key2.free();
@@ -269,10 +326,10 @@ void SurfaceTurbulence::DeleteFineParticles(void)
 
 	//Copy Key
 	Dvector<uint> d_key1, d_key2, d_key3, d_key4;
-	d_key1.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key2.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key3.resize(_fluid->_numParticles * PER_PARTICLE);
-	d_key4.resize(_fluid->_numParticles * PER_PARTICLE);
+	d_key1.resize(maintenanceParam._arrayMaxSize);
+	d_key2.resize(maintenanceParam._arrayMaxSize);
+	d_key3.resize(maintenanceParam._arrayMaxSize);
+	d_key4.resize(maintenanceParam._arrayMaxSize);
 
 	d_ParticleGridIndex.copyToDevice(d_key1);
 	d_ParticleGridIndex.copyToDevice(d_key2);
@@ -280,31 +337,31 @@ void SurfaceTurbulence::DeleteFineParticles(void)
 	d_ParticleGridIndex.copyToDevice(d_key4);
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_ParticleGridIndex()),
-		thrust::device_ptr<uint>(d_ParticleGridIndex() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_ParticleGridIndex() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL3>(d_Pos()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key1()),
-		thrust::device_ptr<uint>(d_key1() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key1() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveSeedAmp()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key2()),
-		thrust::device_ptr<uint>(d_key2() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key2() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveH()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key3()),
-		thrust::device_ptr<uint>(d_key3() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key3() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_WaveDtH()));
 
 	thrust::sort_by_key(thrust::device_ptr<uint>(d_key4()),
-		thrust::device_ptr<uint>(d_key4() + (_fluid->_numParticles * PER_PARTICLE)),
+		thrust::device_ptr<uint>(d_key4() + (maintenanceParam._arrayMaxSize)),
 		thrust::device_ptr<REAL>(d_Seed()));
 
 	StateCheck_D << <divup(_fluid->_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
 		(d_Pos(), d_StateData(), _fluid->_numParticles);
 
-	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (_fluid->_numParticles * PER_PARTICLE));
+	ThrustScanWrapper_kernel(d_StateData(), d_StateData(), (maintenanceParam._arrayMaxSize));
 
-	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (_fluid->_numParticles * PER_PARTICLE) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy((void*)&_numFineParticles, (void*)(this->d_StateData() + (maintenanceParam._arrayMaxSize) - 1), sizeof(uint), cudaMemcpyDeviceToHost));
 
 	d_key1.free();
 	d_key2.free();
@@ -601,7 +658,7 @@ void SurfaceTurbulence::drawFineParticles(void)
 
 		//////Draw waveNormal
 		//glColor3f(1.0f, 1.0f, 1.0f);
-		//double scale = 0.03;
+		//double scale = 0.003;
 		//glBegin(GL_LINES);
 		//glVertex3d(position.x, position.y, position.z);
 		//glVertex3d(position.x + waveNormal.x * scale, position.y + waveNormal.y * scale, position.z + waveNormal.z * scale);
@@ -610,17 +667,17 @@ void SurfaceTurbulence::drawFineParticles(void)
 		////general visualize
 		//glColor3f(0.0f, 1.0f, 1.0f);
 
-		//////Curvature visualize
-		REAL3 color = ScalarToColor(laplacian * 1000);
-		glColor3f(color.x, color.y, color.z);
+		////////Curvature visualize
+		//REAL3 color = ScalarToColor(curvature * 1000);
+		//glColor3f(color.x, color.y, color.z);
 		
 		//////WaveH visualize
 		//REAL3 color = ScalarToColor(waveH * 1000);
 		//glColor3f(color.x, color.y, color.z);
 		
-		//////Laplacian visualize
-		//REAL3 color = ScalarToColor(laplacian * 10);
-		//glColor3f(color.x, color.y, color.z);
+		//Laplacian visualize
+		REAL3 color = ScalarToColor(laplacian * 10);
+		glColor3f(color.x, color.y, color.z);
 
 		//if (flag) {
 		//	glColor3f(1.0f, 0.0f, 0.0f);
@@ -649,12 +706,13 @@ void SurfaceTurbulence::drawDisplayParticles(void)
 		REAL waveDt = h_WaveDtH[i];
 		REAL waveH = h_WaveH[i];
 		REAL seed = h_Seed[i];
+		REAL seedAmplitude = h_WaveSeedAmp[i];
 
 		////general visualize
 		glColor3f(0.0f, 1.0f, 1.0f);
 
 		//// visualize
-		REAL3 color = ScalarToColor(fabs(waveH) * 1000);
+		REAL3 color = ScalarToColor(fabs(waveH) * 100);
 		glColor3f(color.x, color.y, color.z);
 
 		glBegin(GL_POINTS);

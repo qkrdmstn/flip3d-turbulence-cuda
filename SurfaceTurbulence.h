@@ -38,11 +38,13 @@ struct MaintenanceParam
 
 	uint _fineRes;
 	uint _coarseRes;
+
+	uint _arrayMaxSize;
 };
 
 
-#define SURFACE_DENSITY 30.0
-#define PER_PARTICLE 140
+#define SURFACE_DENSITY 20.0
+#define PER_PARTICLE 100
 
 class SurfaceTurbulence
 {
@@ -126,6 +128,8 @@ public: //Initialize
 	void InitWaveParam(void);
 	void Initialize_kernel(void);
 	void ThrustScanWrapper_kernel(uint* output, uint*input, uint numElements);
+
+	void InsertNewCoarseNeighbor_kernel(void);
 
 public: //Surface Maintenance
 	void Advection_kernel(void);
