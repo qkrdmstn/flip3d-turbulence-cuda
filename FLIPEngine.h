@@ -1,6 +1,8 @@
 #ifndef __SYSTEM_H__
 #define __SYSTEM_H__
 
+#include <fstream>
+#include <string>
 #include "FLIP3D_Cuda.h"
 #include "SurfaceTurbulence.h"
 #include "MarchingCubesCuda.h"
@@ -33,6 +35,7 @@ public:
 public:
 	void	draw(bool flag1, bool flag2, bool flag3, bool flag4);
 	void	drawBoundary();
+	void	ExportObj(const char* filePath);
 };
 
 #endif

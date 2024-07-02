@@ -35,7 +35,7 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 	maintenanceParam._coarseRes = gridRes;
 	maintenanceParam._coarseScaleLen = 1.0 / gridRes; //asd
 
-	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.5; 
+	maintenanceParam._outerRadius = maintenanceParam._coarseScaleLen * 0.3; 
 	maintenanceParam._innerRadius = maintenanceParam._outerRadius / 2.0;
 
 	maintenanceParam._fineRes = maintenanceParam._coarseRes * 4;
@@ -43,7 +43,6 @@ void SurfaceTurbulence::InitMaintenanceParam(uint gridRes)
 
 	maintenanceParam._normalRadius = 0.5 * (maintenanceParam._outerRadius + maintenanceParam._innerRadius);
 	maintenanceParam._arrayMaxSize = _fluid->_numParticles * PER_PARTICLE;
-
 }
 
 void SurfaceTurbulence::InitWaveParam(void)
@@ -61,25 +60,36 @@ void SurfaceTurbulence::InitWaveParam(void)
 
 	//waveParam._dt = 0.005;
 	//waveParam._waveSpeed = 0.5;
-	//waveParam._waveDamping = 0.9f;
-	//waveParam._waveSeedFreq = 50.0; //100
-	//waveParam._waveMaxAmplitude = 0.015;
+	//waveParam._waveDamping = 0.5f;
+	//waveParam._waveSeedFreq = 100.0; //100
+	//waveParam._waveMaxAmplitude = 0.03;
 	//waveParam._waveMaxFreq = 600.0f;
-	//waveParam._waveMaxSeedingAmplitude = 0.2; // as multiple of max amplitude
-	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
-	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves 0.015
-	//waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
+	//waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves 0.015
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.5f; // higher values will result in faster and more violent wave seeding
 
 	waveParam._dt = 0.005;
 	waveParam._waveSpeed = 0.5;
-	waveParam._waveDamping = 1.0f;
+	waveParam._waveDamping = 0.5f;
 	waveParam._waveSeedFreq = 100.0;
-	waveParam._waveMaxAmplitude = 0.06;
+	waveParam._waveMaxAmplitude = 0.1;
 	waveParam._waveMaxFreq = 600.0f;
-	waveParam._waveMaxSeedingAmplitude = 0.5; // as multiple of max amplitude
-	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.035; // any curvature higher than this value will seed waves
+	waveParam._waveMaxSeedingAmplitude = 0.8; // as multiple of max amplitude
+	waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.03; // any curvature higher than this value will seed waves
 	waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.01; // any curvature higher than this value will seed waves
 	waveParam._waveSeedStepSizeRatioOfMax = 0.05f; // higher values will result in faster and more violent wave seeding
+
+	//waveParam._dt = 0.005;
+	//waveParam._waveSpeed = 0.5;
+	//waveParam._waveDamping = 0.05f;
+	//waveParam._waveSeedFreq = 100.0;
+	//waveParam._waveMaxAmplitude = 0.3;
+	//waveParam._waveMaxFreq = 600.0f;
+	//waveParam._waveMaxSeedingAmplitude = 0.8; // as multiple of max amplitude
+	//waveParam._waveSeedingCurvatureThresholdCenter = maintenanceParam._outerRadius * 0.05; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedingCurvatureThresholdRadius = maintenanceParam._outerRadius * 0.015; // any curvature higher than this value will seed waves
+	//waveParam._waveSeedStepSizeRatioOfMax = 0.5f; // higher values will result in faster and more violent wave seeding
 
 	printf("c: %f, r: %f\n", waveParam._waveSeedingCurvatureThresholdCenter, waveParam._waveSeedingCurvatureThresholdRadius);
 }

@@ -95,9 +95,9 @@ void FLIP3D_Cuda::PlaceObjects()
 {
 	PlaceWalls();
 
-	WaterDropTest();
+	//WaterDropTest();
 	//DamBreakTest();
-	//RotateBoxesTest();
+	RotateBoxesTest();
 	//MoveBoxTest();
 	//MoveSphereTest();
 }
@@ -183,16 +183,24 @@ void FLIP3D_Cuda::WaterDropTest()
 	obj.type = FLUID;
 	obj.shape = SPHERE;
 	obj.c.x = 0.5;
-	obj.c.y = 0.15;
+	obj.c.y = 0.3;
 	obj.c.z = 0.5;
 	obj.r = 0.02;
 	objects.push_back(obj);
 
 	//obj.type = FLUID;
 	//obj.shape = SPHERE;
-	//obj.c.x = 0.75;
-	//obj.c.y = 0.2;
-	//obj.c.z = 0.5;
+	//obj.c.x = 0.5;
+	//obj.c.y = 0.4;
+	//obj.c.z = 0.47;
+	//obj.r = 0.02;
+	//objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = SPHERE;
+	//obj.c.x = 0.3;
+	//obj.c.y = 0.7;
+	//obj.c.z = 0.3;
 	//obj.r = 0.02;
 	//objects.push_back(obj);
 
@@ -229,9 +237,16 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.type = FLUID;
 	obj.shape = BOX;
 	obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
-	obj.p[0].y = _wallThick;	obj.p[1].y = 0.25;
-	obj.p[0].z = 0.3;	obj.p[1].z = 0.8;
+	obj.p[0].y = _wallThick;	obj.p[1].y = 0.4;
+	obj.p[0].z = 0.2;	obj.p[1].z = 0.8;
 	objects.push_back(obj);
+
+	//obj.type = FLUID;
+	//obj.shape = BOX;
+	//obj.p[0].x = 0.2;	obj.p[1].x = 0.4;
+	//obj.p[0].y = _wallThick;	obj.p[1].y = 0.25;
+	//obj.p[0].z = 0.3;	obj.p[1].z = 0.8;
+	//objects.push_back(obj);
 
 	obj.type = FLUID;
 	obj.shape = BOX;
@@ -239,57 +254,6 @@ void FLIP3D_Cuda::DamBreakTest()
 	obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
 	obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
 	objects.push_back(obj);
-
-	////////Z  //이방향 nan 에러
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 0.06;
-
-	//objects.push_back(obj);
-	//
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
-	//obj.p[0].z = 1.0 - 0.06;	obj.p[1].z = 1.0 - _wallThick;
-
-	//objects.push_back(obj);
-	
-	////X
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 0.06;
-	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-
-	//objects.push_back(obj);
-
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = 1.0 - 0.06;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = 0.7;	obj.p[1].y = 1.0 - _wallThick;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-
-	//objects.push_back(obj);
-
-	////Y
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = _wallThick;	obj.p[1].y = 0.06;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-
-	//objects.push_back(obj);
-
-	//obj.type = FLUID;
-	//obj.shape = BOX;
-	//obj.p[0].x = _wallThick;	obj.p[1].x = 1.0 - _wallThick;
-	//obj.p[0].y = 1.0 - 0.06;	obj.p[1].y = 1.0 - _wallThick;
-	//obj.p[0].z = _wallThick;	obj.p[1].z = 1.0 - _wallThick;
-
-	//objects.push_back(obj);
 }
 
 void FLIP3D_Cuda::RotateBoxesTest(void)

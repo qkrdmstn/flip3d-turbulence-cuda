@@ -8,6 +8,31 @@
 #include <cmath>
 #include<stdio.h>
 
+//#define LOOP_GHOSTS_POS_BEGIN(pos, radius) \
+//    int flagLOOPGHOSTS = -1; \
+//    Vec3 gPos; \
+//    while(flagLOOPGHOSTS < 6) { \
+//        if     (flagLOOPGHOSTS < 0 && pos.x - params.bndXm <= radius) { flagLOOPGHOSTS = 0; gPos = Vec3(2.f*params.bndXm - pos.x, pos.y, pos.z); } \
+//        else if(flagLOOPGHOSTS < 1 && params.bndXp - pos.x <= radius) { flagLOOPGHOSTS = 1; gPos = Vec3(2.f*params.bndXp - pos.x, pos.y, pos.z); } \
+//        else if(flagLOOPGHOSTS < 2 && pos.y - params.bndYm <= radius) { flagLOOPGHOSTS = 2; gPos = Vec3(pos.x, 2.f*params.bndYm - pos.y, pos.z); } \
+//        else if(flagLOOPGHOSTS < 3 && params.bndYp - pos.y <= radius) { flagLOOPGHOSTS = 3; gPos = Vec3(pos.x, 2.f*params.bndYp - pos.y, pos.z); } \
+//        else if(flagLOOPGHOSTS < 4 && pos.z - params.bndZm <= radius) { flagLOOPGHOSTS = 4; gPos = Vec3(pos.x, pos.y, 2.f*params.bndZm - pos.z); } \
+//        else if(flagLOOPGHOSTS < 5 && params.bndZp - pos.Z <= radius) { flagLOOPGHOSTS = 5; gPos = Vec3(pos.x, pos.y, 2.f*params.bndZp - pos.z); } \
+//        else                                                          { flagLOOPGHOSTS = 6; gPos = Vec3(pos.x, pos.y, pos.z);                    }
+//#define LOOP_GHOSTS_POS_NORMAL_BEGIN(pos, normal, radius) \
+//    int flagLOOPGHOSTS = -1; \
+//    Vec3 gPos, gNormal; \
+//    while(flagLOOPGHOSTS < 6) { \
+//        if     (flagLOOPGHOSTS < 0 && pos.x - params.bndXm <= radius) { flagLOOPGHOSTS = 0; gPos = Vec3(2.f*params.bndXm - pos.x, pos.y, pos.z); gNormal = Vec3(-normal.x,  normal.y,  normal.z); } \
+//        else if(flagLOOPGHOSTS < 1 && params.bndXp - pos.x <= radius) { flagLOOPGHOSTS = 1; gPos = Vec3(2.f*params.bndXp - pos.x, pos.y, pos.z); gNormal = Vec3(-normal.x,  normal.y,  normal.z); } \
+//        else if(flagLOOPGHOSTS < 2 && pos.y - params.bndYm <= radius) { flagLOOPGHOSTS = 2; gPos = Vec3(pos.x, 2.f*params.bndYm - pos.y, pos.z); gNormal = Vec3( normal.x, -normal.y,  normal.z); } \
+//        else if(flagLOOPGHOSTS < 3 && params.bndYp - pos.y <= radius) { flagLOOPGHOSTS = 3; gPos = Vec3(pos.x, 2.f*params.bndYp - pos.y, pos.z); gNormal = Vec3( normal.x, -normal.y,  normal.z); } \
+//        else if(flagLOOPGHOSTS < 4 && pos.z - params.bndZm <= radius) { flagLOOPGHOSTS = 4; gPos = Vec3(pos.x, pos.y, 2.f*params.bndZm - pos.z); gNormal = Vec3( normal.x,  normal.y, -normal.z); } \
+//        else if(flagLOOPGHOSTS < 5 && params.bndZp - pos.Z <= radius) { flagLOOPGHOSTS = 5; gPos = Vec3(pos.x, pos.y, 2.f*params.bndZp - pos.z); gNormal = Vec3( normal.x,  normal.y, -normal.z); } \
+//        else                                                          { flagLOOPGHOSTS = 6; gPos = pos;                                          gNormal = normal;                                }
+//#define LOOP_GHOSTS_END \
+//    }
+
 __device__ BOOL IsInDomain(REAL3 pos, MaintenanceParam maintenanceParam)
 {
 	REAL x = pos.x;
@@ -22,6 +47,23 @@ __device__ BOOL IsInDomain(REAL3 pos, MaintenanceParam maintenanceParam)
 	else
 		return false;
 }
+
+__device__ BOOL IsInDomain2(REAL3 pos, MaintenanceParam maintenanceParam)
+{
+	REAL x = pos.x;
+	REAL y = pos.y;
+	REAL z = pos.z;
+	REAL wallThick = 1.0 / maintenanceParam._coarseRes;
+
+	REAL scale = 1.1;
+	if (0.0 + wallThick * 1.1 <= x && x <= 1.0 - wallThick * 1.1 &&
+		0.0 + wallThick * 1.1 <= y && y <= 1.0 - wallThick * 1.1 &&
+		0.0 + wallThick * 1.1 <= z && z <= 1.0 - wallThick * 1.1)
+		return true;
+	else
+		return false;
+}
+
 
 __global__ void Initialize_D(REAL3* coarsePos, uint* coarseType, REAL3* finePos, uint* particleGridIdx, uint numCoarseParticles, uint* gridIdx, uint* cellStart, uint* cellEnd, MaintenanceParam maintenanceParam)
 {
@@ -526,7 +568,7 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 
 	REAL radius = 2 * maintenanceParam._outerRadius;
 	int width = (radius / cellSize) + 1;
-	FOR_NEIGHBOR(2)
+	FOR_NEIGHBOR(width)
 	{
 		int3 neighborPos = make_int3(gridPos.x + dx, gridPos.y + dy, gridPos.z + dz);
 		uint neighHash = calcGridHash(neighborPos, maintenanceParam._coarseRes);
@@ -541,7 +583,7 @@ __device__ REAL3 MetaballConstraintGradient(REAL3 finePos, REAL3* coarsePos, uin
 				REAL3 cPos = coarsePos[sortedIdx];
 
 				REAL d2 = LengthSquared(fPos - cPos);
-				if (d2 > cellSize * cellSize * width * width)
+				if (d2 > radius * radius)
 					continue;
 				if (coarseType[sortedIdx] != FLUID)
 					continue;
@@ -1320,6 +1362,13 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 	REAL3 pos1 = finePos[idx];
 	REAL3 normal = surfaceNormal[idx];
 
+	if (!IsInDomain2(pos1, maintenanceParam))
+	{
+		laplacian[idx] = 0;
+		waveH[idx] = 0;
+		return;
+	}
+
 	REAL3 vx = make_REAL3(1, 0, 0);
 	REAL3 vy = make_REAL3(0, 1, 0);
 	REAL dotX = Dot(normal, vx);
@@ -1332,6 +1381,7 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 	REAL l = 0.0f;
 	REAL ph = waveH[idx];
 	REAL3 waveN = waveNormal[idx];
+	REAL wTotal = 0.0f;
 
 	if ((waveN.z <= DBL_EPSILON && waveN.z >= -DBL_EPSILON)) laplacian[idx] = 0.0f;
 	else
@@ -1353,6 +1403,38 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 					REAL3 pos2 = finePos[sortedIdx];
 					REAL nh = waveH[sortedIdx];
 
+					//int flagLoop = -1;
+					//REAL wallThick = 1.0 / maintenanceParam._coarseRes;
+					//REAL3 gPos;
+					//while (flagLoop < 6)
+					//{
+					//	if (flagLoop < 0 && pos2.x - wallThick <= r) { flagLoop = 0; gPos = make_REAL3(2.f * wallThick - pos2.x, pos2.y, pos2.z); }
+					//	else if (flagLoop < 1 && 1.0 - wallThick - pos2.x <= r) { flagLoop = 1; gPos = make_REAL3(2.f * 1.0 - wallThick - pos2.x, pos2.y, pos2.z); }
+					//	else if (flagLoop < 2 && pos2.y - wallThick <= r) { flagLoop = 2; gPos = make_REAL3(pos2.x, 2.f * wallThick - pos2.y, pos2.z); }
+					//	else if (flagLoop < 3 && 1.0 - wallThick - pos2.y <= r) { flagLoop = 3; gPos = make_REAL3(pos2.x, 2.f * 1.0 - wallThick - pos2.y, pos2.z); }
+					//	else if (flagLoop < 4 && pos2.z - wallThick <= r) { flagLoop = 4; gPos = make_REAL3(pos2.x, pos2.y, 2.f * wallThick - pos2.z); }
+					//	else if (flagLoop < 5 && 1.0 - wallThick - pos2.z <= r) { flagLoop = 5; gPos = make_REAL3(pos2.x, pos2.y, 2.f * 1.0 - wallThick - pos2.z); }
+					//	else { flagLoop = 6; gPos = make_REAL3(pos2.x, pos2.y, pos2.z); }
+
+
+
+					//	REAL3 dir = gPos - pos1;
+					//	REAL lengthDir = Length(dir);
+					//	if (lengthDir < 1e-5) continue;
+
+					//	REAL3 tangentDir = dir - normal * (Dot(dir, normal));
+					//	Normalize(tangentDir);
+					//	tangentDir = tangentDir * lengthDir;
+
+					//	REAL dirX = Dot(tangentDir, t1);
+					//	REAL dirY = Dot(tangentDir, t2);
+					//	REAL dz = nh - ph - (-waveN.x / waveN.z) * dirX - (-waveN.y / waveN.z) * dirY;
+					//	REAL w = DistKernel(dir, r);
+					//	wTotal += w;
+					//	l += fmax(-100.0f, fmin(w * 4.0f * dz / (lengthDir * lengthDir), 100.0f));
+
+					//}
+
 					REAL3 dir = pos2 - pos1;
 					REAL lengthDir = Length(dir);
 					if (lengthDir < 1e-5) continue;
@@ -1370,8 +1452,9 @@ __global__ void ComputeLaplacian_D(REAL3* finePos, REAL* laplacian, REAL3* waveN
 			}
 		}END_FOR;
 		laplacian[idx] = l;
+		//if (wTotal != 0) laplacian[idx] = l / wTotal;
+		//else laplacian[idx] = 0;
 	}
-
 }
 
 __global__ void EvolveWave_D(REAL* waveDtH, REAL* waveH, REAL* laplacian, REAL* seed, uint numFineParticles, WaveParam waveParam)

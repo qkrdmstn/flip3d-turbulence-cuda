@@ -2,6 +2,7 @@
 #define __MARCHING_CUBES_CUDA_H__
 
 #pragma once
+#include <fstream>
 #include <vector>
 #include "CUDA_Custom/DeviceManager.h"
 #include "CUDA_Custom/PrefixArray.h"

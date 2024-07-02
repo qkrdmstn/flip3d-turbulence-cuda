@@ -37,7 +37,7 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 		_fluid->ComputeParticleDensity_kernel();
 		_fluid->ComputeExternalForce_kernel(_gravity, _dt);
 
-		if (_frame <= 60)
+		//if (_frame <= 60)
 		{
 			_fluid->MoveObject();
 			_fluid->CollisionObject_kernel(_dt);
@@ -65,7 +65,7 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 		}
 		else
 		{
-			int iter2 = 4;
+			int iter2 = 6;
 			for (int i = 0; i < iter2; i++)
 			{
 				_turbulence->SurfaceMaintenance();
@@ -161,4 +161,39 @@ void	FLIPEngine::drawBoundary()
 	glPointSize(1.0);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();
+}
+
+void FLIPEngine::ExportObj(const char* filePath)
+{
+	ofstream fout;
+	fout.open(filePath);
+
+
+	//for (int i = 0; i < numberFace; i++)
+	//{
+	//	glBegin(GL_POLYGON);
+	//	for (int j = 0; j < 3; j++)
+	//	{
+	//		vec3 vertexNormal = h_VertexNormals[h_Faces[i * 3 + j]];
+	//		vec3 vertex = h_Vertices[h_Faces[i * 3 + j]];
+	//		glNormal3d(vertexNormal.x(), vertexNormal.y(), vertexNormal.z());
+	//		glVertex3d(vertex.x(), vertex.y(), vertex.z());
+	//	}
+	//	glEnd();
+	//}
+
+	int numberFace = (int)_MC->h_Faces.size() / 3;
+	for (int i = 0; i < _MC->h_Vertices.size(); i++)
+	{
+		string vStr = "v " + to_string(_MC->h_Vertices[i].x()) + " " + to_string(_MC->h_Vertices[i].y()) + " " + to_string(_MC->h_Vertices[i].z()) + "\n";
+		fout.write(vStr.c_str(), vStr.size());
+	}
+
+	for (int i = 0; i < numberFace; i++)
+	{
+		string fStr = "f " + to_string(_MC->h_Faces[i * 3 + 0] + 1u) + " " + to_string(_MC->h_Faces[i * 3 + 1] + 1u) + " " + to_string(_MC->h_Faces[i * 3 + 2] + 1u) + "\n";
+		fout.write(fStr.c_str(), fStr.size());
+	}
+
+	fout.close();
 }

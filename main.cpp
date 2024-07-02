@@ -8,6 +8,9 @@
 using namespace std;
 
 #define SCREEN_CAPTURE 1
+#define OBJ_CAPTURE 0
+int cnt = 0;
+
 int _width = 800;
 int _height = 800;
 float _zoom = 1.959998f; // 화면 확대,축소
@@ -76,14 +79,22 @@ void Capture(char* filename, int width, int height)
 void Update(void)
 {
 	if (_simulation) {
-#if SCREEN_CAPTURE
-		if (_frame <= 1000 && _frame % 2 == 0)
+		if (/*_frame <= 1000 &&*/ _frame % 3 == 1)
 		{
-			string path = "image\\capture\\FLIPGPU" + to_string(_frame) + ".jpg";
+#if SCREEN_CAPTURE
+
+			string path = "capture\\image\\Fluid" + to_string(cnt) + ".jpg";
 			char* strPath = const_cast<char*>((path).c_str());
 			Capture(strPath, _width, _height);
-		}
 #endif
+
+#if OBJ_CAPTURE
+			string objPath = "capture\\obj\\Fluid" + to_string(cnt) + ".obj";
+			char* objStrPath = const_cast<char*>((objPath).c_str());
+			_engine->ExportObj(objStrPath);
+#endif	
+			cnt++;
+		}
 		frame++;
 		curTime = glutGet(GLUT_ELAPSED_TIME); 
 		if (curTime - timebase > 1000)
@@ -95,9 +106,9 @@ void Update(void)
 
 		_engine->simulation(advection, flag);
 
-		if (_frame == 1000) {
-			exit(0);
-		}
+		//if (_frame == 600) {
+		//	exit(0);
+		//}
 		_frame++;
 	}
 	glutPostRedisplay();
@@ -164,6 +175,7 @@ void Draw(void)
 
 void Display(void)
 {
+	//glClearColor(0.6f, 0.6f, 1.0f, 1.0f);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();

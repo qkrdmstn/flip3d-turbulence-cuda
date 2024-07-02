@@ -384,7 +384,6 @@ void MarchingCubes_CUDA::MarchingCubes()
 	cudaFree(d_Type);
 	cudaFree(d_GridHash);
 	cudaFree(d_GridIdx);
-
 }
 
 REAL3 ScalarToColor(double val)
