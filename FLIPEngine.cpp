@@ -1,9 +1,9 @@
 #include "FLIPEngine.h"
 
-#define RES 32
+#define RES 64
 #define RENDERRES 256
-#define TURBULENCE 1
-#define SURFACERECONSTRUCTION 1
+#define TURBULENCE 0
+#define SURFACERECONSTRUCTION 0
 void FLIPEngine::init(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
@@ -18,6 +18,17 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 	_MC = new MarchingCubes_CUDA();
 	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
 #endif
+
+	// allocate GPU data
+	unsigned int memSize = sizeof(REAL3) * _fluid->_numParticles;
+
+	// VBO 생성
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, memSize, &_fluid->h_CurPos, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	cudaGraphicsGLRegisterBuffer(&vboResource, vbo, cudaGraphicsMapFlagsNone);
 }
 
 void	FLIPEngine::simulation(bool advection, bool flag)
@@ -48,6 +59,15 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 		_fluid->AdvectParticle_kernel(_dt);
 
 		_fluid->Correct_kernel(_dt);
+
+
+		REAL3* dptr;
+		size_t numBytes;
+		cudaGraphicsMapResources(1, &vboResource, 0);
+		cudaGraphicsResourceGetMappedPointer((void**)&dptr, &numBytes, vboResource);
+		_fluid->CopyPosToVBO(dptr);
+
+		cudaGraphicsUnmapResources(1, &vboResource, 0);
 
 #if TURBULENCE
 		_turbulence->Advection_kernel();
@@ -105,6 +125,17 @@ void	FLIPEngine::reset(void)
 
 void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
 {
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	//// OpenGL에서 VBO를 사용하여 렌더링
+	//glEnableClientState(GL_VERTEX_ARRAY);
+	//glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	//glVertexPointer(3, GL_FLOAT, 0, 0);
+	//glDrawArrays(GL_POINTS, 0, _fluid->_numParticles);
+	//glDisableClientState(GL_VERTEX_ARRAY);
+
+	//glutSwapBuffers();
+
 	if (flag1)
 		_fluid->draw();
 
@@ -119,7 +150,7 @@ void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
 	if (flag4)
 		_MC->renderSurface();
 #endif
-	_fluid->drawBoundingObject();
+	//_fluid->drawBoundingObject();
 	//drawBoundary();
 }
 

@@ -1284,6 +1284,12 @@ void FLIP3D_Cuda::GridValueVisualize(void)
 	//GridVisualize_D << < _grid->_cudaGridSize, _grid->_cudaBlockSize >> > (_grid->d_Volumes, _gridRes, d_gridPos(), d_gridVel(), d_gridPress(), d_gridDens(), d_gridLevelSet(), d_gridDiv(), d_gridContent());
 }
 
+void FLIP3D_Cuda::CopyPosToVBO(REAL3* vboPtr)
+{
+	CopyPosToVBO_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+		(vboPtr, d_CurPos(), _numParticles);
+}
+
 void FLIP3D_Cuda::draw(void)
 {
 	glPushMatrix();

@@ -103,10 +103,10 @@ public:
 	uint _gridRes;
 
 	REAL _wallThick;
-	//REAL _dens = 0.5;
-	//REAL _maxDens = 92.9375;
-	REAL _dens = 0.25;
-	REAL _maxDens = 107.750;
+	REAL _dens = 0.5;
+	REAL _maxDens = 92.9375;
+	//REAL _dens = 0.25;
+	//REAL _maxDens = 107.750;
 
 	REAL3 _externalForce = make_REAL3(0, 0, 0);
 
@@ -207,6 +207,10 @@ public:
 	void draw(void);
 	void drawBoundingObject(void);
 	REAL3 ScalarToColor(double val);
+
+public: //VBO
+	void CopyPosToVBO(REAL3* vboPtr);
+
 
 };
 #endif

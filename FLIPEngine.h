@@ -3,6 +3,12 @@
 
 #include <fstream>
 #include <string>
+#include <GL/glew.h>
+#include <GL/glut.h>
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+#include <helper_gl.h>
+#include <helper_cuda.h> 
 #include "FLIP3D_Cuda.h"
 #include "SurfaceTurbulence.h"
 #include "MarchingCubesCuda.h"
@@ -20,6 +26,11 @@ public:
 	REAL3			_gravity;
 	REAL			_dt;
 	uint			_frame;
+
+public:
+	GLuint vbo;
+	struct cudaGraphicsResource* vboResource;
+
 public:
 	FLIPEngine() {}
 	FLIPEngine(REAL3& gravity, REAL dt)

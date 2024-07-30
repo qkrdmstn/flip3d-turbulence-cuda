@@ -1377,5 +1377,14 @@ __global__ void GridVisualize_D(VolumeCollection volumes, uint gridRes, REAL3* g
 	
 }
 
+__global__ void CopyPosToVBO_D(REAL3* vboPtr, REAL3* pos,  uint numParticles)
+{
+	uint idx = threadIdx.x + blockDim.x * blockIdx.x;
+	if (idx >= numParticles)
+		return;
+
+	vboPtr[idx] = pos[idx];
+}
+
 
 #endif

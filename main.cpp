@@ -2,12 +2,12 @@
 #include <string>
 #include <time.h>
 #include <Windows.h> // exit error
-#include "GL\glut.h"
 #include "FLIPEngine.h"
+#include "GL\glut.h"
 
 using namespace std;
 
-#define SCREEN_CAPTURE 1
+#define SCREEN_CAPTURE 0
 #define OBJ_CAPTURE 0
 int cnt = 0;
 
@@ -42,6 +42,9 @@ void Init(void)
 {
 	// 깊이값 사용 여부
 	glEnable(GL_DEPTH_TEST);
+
+	glewInit();
+	cudaGLSetGLDevice(0);
 	// 0.6e-2
 	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.005);
 }
@@ -497,7 +500,6 @@ void Motion(int x, int y)
 void main(int argc, char** argv)
 {
 	glutInit(&argc, argv);
-	Init();
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowSize(_width, _height);
 	glutInitWindowPosition(100, 100);
@@ -509,6 +511,7 @@ void main(int argc, char** argv)
 	glutMotionFunc(Motion);
 	glutKeyboardFunc(Keyboard);
 
+	Init();
 
 	glutMainLoop();
 }
