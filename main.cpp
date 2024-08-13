@@ -21,7 +21,7 @@ float _trans_y = 0.14f; // y축 이동
 int _last_x = 0; // 이전 마우스 클릭 x위치
 int _last_y = -0; // 이전 마우스 클릭 y위치
 unsigned char _buttons[3] = { 0 }; // 마우스 상태(왼쪽,오른쪽,휠 버튼)
-bool _simulation = true;
+bool _simulation = false;
 
 bool _fluidFlag = false;
 bool _turbulenceBaseFlag = false;
@@ -46,7 +46,7 @@ void Init(void)
 	glewInit();
 	cudaGLSetGLDevice(0);
 	// 0.6e-2
-	_engine = new FLIPEngine(make_REAL3(0, -9.81, 0.0), 0.005);
+	_engine = new FLIPEngine();
 }
 
 void Capture(char* filename, int width, int height)
@@ -172,14 +172,16 @@ void Draw(void)
 	sprintf(text, "FLIP Particles: %d", _engine->_fluid->_numParticles);
 	DrawText(10.0f, 740.0f, text);
 
+#if TURBULENCE
 	sprintf(text, "Turbulence Particles: %d", _engine->_turbulence->_numFineParticles);
 	DrawText(10.0f, 720.0f, text);
+#endif
 }
 
 void Display(void)
 {
 	//glClearColor(0.6f, 0.6f, 1.0f, 1.0f);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 

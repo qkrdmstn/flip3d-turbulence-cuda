@@ -7,6 +7,9 @@
     <Filter Include="헤더">
       <UniqueIdentifier>{89da34c4-26d8-484b-b8fa-7c0d513dce9b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{1c4dac29-480f-477f-be48-1c72d6a6959f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -16,6 +19,12 @@
       <Filter>소스</Filter>
     </ClCompile>
     <ClCompile Include="MarchingCubesCuda.cpp">
+      <Filter>소스</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>소스</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidRenderer.cpp">
       <Filter>소스</Filter>
     </ClCompile>
   </ItemGroup>
@@ -65,6 +74,12 @@
     <ClInclude Include="Vec3.h">
       <Filter>헤더</Filter>
     </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidRenderer.h">
+      <Filter>헤더</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FLIP3D_Cuda.cu">
@@ -82,5 +97,13 @@
     <CudaCompile Include="MarchingCubes.cu">
       <Filter>소스</Filter>
     </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\particleSphere.fs">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\particleSphere.vs">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

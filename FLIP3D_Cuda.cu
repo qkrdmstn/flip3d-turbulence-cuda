@@ -66,6 +66,8 @@ void FLIP3D_Cuda::ParticleInit()
 		}
 	}
 
+	_numFluidParticles = _numParticles;
+
 	// Place Wall Particles
 	w = 1.0 / _gridRes;
 	for (int i = 0; i < _gridRes; i++) {

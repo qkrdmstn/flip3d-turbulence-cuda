@@ -12,10 +12,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FLIPEngine.cpp" />
+    <ClCompile Include="FluidRenderer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MarchingCubesCuda.cpp" />
+    <ClCompile Include="Shader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FluidRenderer.h" />
     <ClInclude Include="LevelSetObject.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="FLIP3D_Cuda.cuh" />
@@ -25,6 +28,7 @@
     <ClInclude Include="FLIPGrid.h" />
     <ClInclude Include="Hash.cuh" />
     <ClInclude Include="MarchingCubesCuda.h" />
+    <ClInclude Include="Shader.h" />
     <ClInclude Include="SurfaceTurbulence.cuh" />
     <ClInclude Include="SurfaceTurbulence.h" />
     <ClInclude Include="tables.h" />
@@ -38,6 +42,10 @@
     <CudaCompile Include="Hash.cu" />
     <CudaCompile Include="MarchingCubes.cu" />
     <CudaCompile Include="SurfaceTurbulence.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\particleSphere.fs" />
+    <None Include="Shader\particleSphere.vs" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{D9F6A165-9601-460E-88F9-A96E798C1F4A}</ProjectGuid>

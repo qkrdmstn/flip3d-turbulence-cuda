@@ -100,6 +100,7 @@ public:
 
 public:
 	uint _numParticles;
+	uint _numFluidParticles;
 	uint _gridRes;
 
 	REAL _wallThick;

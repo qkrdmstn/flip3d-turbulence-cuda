@@ -1,17 +1,33 @@
 #include "FLIPEngine.h"
+#include "Shader.h"
 
 #define RES 64
 #define RENDERRES 256
 #define TURBULENCE 0
 #define SURFACERECONSTRUCTION 0
-void FLIPEngine::init(REAL3& gravity, REAL dt)
+
+void FLIPEngine::init()
+{
+	InitSimulation(make_REAL3(0, -9.81, 0.0), 0.005);
+	InitRenderer();
+}
+
+void	FLIPEngine::InitRenderer()
+{
+	_renderer = new FluidRenderer();
+	_particleShader = new Shader("Shader\\particleSphere");
+}
+
+void	FLIPEngine::InitSimulation(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
 	_dt = dt;
 	_frame = 0u;
 
 	_fluid = new FLIP3D_Cuda(RES);
+#if TURBULENCE
 	_turbulence = new SurfaceTurbulence(_fluid, RES);
+#endif
 	_fluid->CopyToHost();
 
 #if SURFACERECONSTRUCTION
@@ -20,15 +36,42 @@ void FLIPEngine::init(REAL3& gravity, REAL dt)
 #endif
 
 	// allocate GPU data
-	unsigned int memSize = sizeof(REAL3) * _fluid->_numParticles;
+	unsigned int memSize = 4 * sizeof(float) * _fluid->_numFluidParticles;
 
-	// VBO 생성
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, memSize, &_fluid->h_CurPos, GL_DYNAMIC_DRAW);
+	// Pos VBO 생성
+	glGenBuffers(1, &posVbo);
+	glBindBuffer(GL_ARRAY_BUFFER, posVbo);
+	glBufferData(GL_ARRAY_BUFFER, memSize, 0, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	cudaGraphicsGLRegisterBuffer(&vboPosResource, posVbo, cudaGraphicsMapFlagsNone);
 
-	cudaGraphicsGLRegisterBuffer(&vboResource, vbo, cudaGraphicsMapFlagsNone);
+	// Color VBO 생성
+	glGenBuffers(1, &colorVbo);
+	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
+	glBufferData(GL_ARRAY_BUFFER, memSize, 0, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	cudaGraphicsGLRegisterBuffer(&vboColorResource, colorVbo, cudaGraphicsMapFlagsNone);
+
+	// fill color buffer
+	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
+	float* data = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+	float* ptr = data;
+
+	for (uint i = 0; i < _fluid->_numFluidParticles; i++)
+	{
+		float t = i / (float)_fluid->_numFluidParticles;
+#if 0
+		* ptr++ = rand() / (float)RAND_MAX;
+		*ptr++ = rand() / (float)RAND_MAX;
+		*ptr++ = rand() / (float)RAND_MAX;
+#else
+		colorRamp(t, ptr);
+		ptr += 3;
+#endif
+		* ptr++ = 1.0f;
+	}
+
+	glUnmapBuffer(GL_ARRAY_BUFFER);
 }
 
 void	FLIPEngine::simulation(bool advection, bool flag)
@@ -56,18 +99,19 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 
 		_fluid->SolvePICFLIP();
 
-		_fluid->AdvectParticle_kernel(_dt);
+ 		_fluid->AdvectParticle_kernel(_dt);
 
 		_fluid->Correct_kernel(_dt);
 
 
 		REAL3* dptr;
 		size_t numBytes;
-		cudaGraphicsMapResources(1, &vboResource, 0);
-		cudaGraphicsResourceGetMappedPointer((void**)&dptr, &numBytes, vboResource);
+		cudaGraphicsMapResources(1, &vboPosResource, 0);
+		cudaGraphicsResourceGetMappedPointer((void**)&dptr, &numBytes, vboPosResource);
+		
 		_fluid->CopyPosToVBO(dptr);
 
-		cudaGraphicsUnmapResources(1, &vboResource, 0);
+		cudaGraphicsUnmapResources(1, &vboPosResource, 0);
 
 #if TURBULENCE
 		_turbulence->Advection_kernel();
@@ -108,7 +152,7 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 	_MC->MarchingCubes();
 #endif
 
-	_fluid->CopyToHost();
+	//_fluid->CopyToHost();
 
 #if TURBULENCE
 	_turbulence->CopyToHost();
@@ -125,19 +169,41 @@ void	FLIPEngine::reset(void)
 
 void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
 {
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_POINT_SPRITE_ARB);
+	glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);
 
-	//// OpenGL에서 VBO를 사용하여 렌더링
-	//glEnableClientState(GL_VERTEX_ARRAY);
-	//glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	//glVertexPointer(3, GL_FLOAT, 0, 0);
-	//glDrawArrays(GL_POINTS, 0, _fluid->_numParticles);
-	//glDisableClientState(GL_VERTEX_ARRAY);
+	_particleShader->enable();
+	glUniform1f(glGetUniformLocation(_particleShader->_program, "pointScale"),
+		800 / tanf(60.0 * 0.5f * (float)M_PI / 180.0f));
+	glUniform1f(glGetUniformLocation(_particleShader->_program, "pointRadius"),
+		0.125f * 0.15f);
 
-	//glutSwapBuffers();
+	// OpenGL에서 VBO를 사용하여 렌더링
+	glColor3f(1, 1, 1);
+	//Pos Setting
+	glBindBuffer(GL_ARRAY_BUFFER, posVbo);
+	glVertexPointer(3, GL_FLOAT, 0, 0);
+	glEnableClientState(GL_VERTEX_ARRAY);
 
-	if (flag1)
-		_fluid->draw();
+	//Color Setting
+	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
+	glColorPointer(4, GL_FLOAT, 0, 0);
+	glEnableClientState(GL_COLOR_ARRAY);
+
+	glDrawArrays(GL_POINTS, 0, _fluid->_numFluidParticles);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_COLOR_ARRAY);
+
+	_particleShader->ban();
+	glDisable(GL_POINT_SPRITE_ARB);
+
+	//if (flag1)
+	//	_fluid->draw();
 
 #if TURBULENCE
 	if (flag2)
@@ -150,7 +216,7 @@ void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
 	if (flag4)
 		_MC->renderSurface();
 #endif
-	//_fluid->drawBoundingObject();
+	_fluid->drawBoundingObject();
 	//drawBoundary();
 }
 
