@@ -1,7 +1,6 @@
+
 uniform float pointRadius;  // point size in world space
 uniform float pointScale;   // scale to calculate size in pixels
-uniform float densityScale;
-uniform float densityOffset;
 
 varying vec4 clipPos;
 void main()

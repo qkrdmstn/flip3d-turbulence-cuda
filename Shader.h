@@ -14,7 +14,7 @@ public:
 	GLuint _program;
 	GLuint _shaders[NUM_SHADER]; // vertex and fragment shaders
 public:
-	Shader(const string& fileName);
+	Shader(const string& vsfileName, const string& fsfileName);
 	virtual ~Shader();
 public:
 	void		enable(void);

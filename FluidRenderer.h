@@ -2,33 +2,55 @@
 
 #include <GL/glew.h>
 #include <GL/glut.h>
+#include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <helper_gl.h>
 #include <helper_cuda.h> 
 #include "Shader.h"
+#include "FBO.h"
 
 class FluidRenderer
 {
+public:
+	int _numParticles;
+	float _sphereRadius;
+
 public: //VBO
-	GLuint			posVbo;
-	GLuint			colorVbo;
-	struct cudaGraphicsResource* vboPosResource;
-	struct cudaGraphicsResource* vboColorResource;
+	GLuint _posVbo;
+	GLuint _colorVbo;
+	struct cudaGraphicsResource* _vboPosResource;
+	struct cudaGraphicsResource* _vboColorResource;
+
+public: //FBO
+	FBO _depthFBO;
+	FBO _normalFBO;
+
+public: // Texture
+	GLuint _depthTex;
+	GLuint _normalTex;
 
 public: //Shader
-	Shader* _particleShader;
+	Shader* _depthShader;
+	Shader* _normalShader;
 
 public:
 	FluidRenderer(void);
 	~FluidRenderer(void);
 
+	void InitializeFluidRenderer(int _numParticles);
 	void InitShader(void);
 	void InitVBO(void);
-
+	void InitFBO(void);
+public:
+	float3* CudaGraphicResourceMapping(void);
+	void CudaGraphicResourceUnMapping(void);
+	
 public:
 	void Rendering(void);
+	void GenerateDepth(void);
+	void CalcNormal(void);
 
-
+public:
 	float lerp(float a, float b, float t)
 	{
 		return a + t * (b - a);

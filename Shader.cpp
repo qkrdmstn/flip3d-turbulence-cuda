@@ -1,5 +1,3 @@
-
-
 #include <iostream>
 #include <fstream>
 #include "Shader.h"
@@ -10,12 +8,12 @@ static GLuint CreateShader(const string& text, GLenum shaderType);
 static string LoadShader(const string& fileName);
 static void CheckShaderError(GLuint shader, GLuint flag, bool isProgram, const string& errorMessage);
 
-Shader::Shader(const string& fileName)
+Shader::Shader(const string& vsfileName, const string& fsfileName)
 {
 	_program = glCreateProgram();
 
-	_shaders[0] = CreateShader(LoadShader(fileName + ".vs"), GL_VERTEX_SHADER);
-	_shaders[1] = CreateShader(LoadShader(fileName + ".fs"), GL_FRAGMENT_SHADER);
+	_shaders[0] = CreateShader(LoadShader(vsfileName + ".vs"), GL_VERTEX_SHADER);
+	_shaders[1] = CreateShader(LoadShader(fsfileName + ".fs"), GL_FRAGMENT_SHADER);
 
 	for (unsigned int i = 0; i < NUM_SHADER; i++)
 		glAttachShader(_program, _shaders[i]);

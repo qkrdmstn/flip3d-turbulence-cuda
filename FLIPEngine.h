@@ -14,6 +14,7 @@
 #include "SurfaceTurbulence.h"
 #include "MarchingCubesCuda.h"
 #include "FluidRenderer.h"
+#include "Camera.h"
 
 class FLIPEngine
 {
@@ -27,18 +28,30 @@ public:
 public:
 	REAL3			_gravity;
 	REAL			_dt;
-	uint			_frame;
 
 public:
-	GLuint			posVbo;
-	GLuint			colorVbo;
-	struct cudaGraphicsResource* vboPosResource;
-	struct cudaGraphicsResource* vboColorResource;
+	bool _simulation = false;
+	int _frame = 0;
+	int _curTime, _timebase = 0;
+	int _step = 0;
+	double fps = 0;
+	int cnt = 0;
 
-public: //Shader
-	Shader*			_particleShader;
+	bool advection = true;
+	bool flag = false;
 
-public: FluidRenderer* _renderer;
+public: //Rendering
+	bool _fluidFlag = true;
+	bool _turbulenceBaseFlag = false;
+	bool _turbulenceDisplayFlag = false;
+	bool _surfaceReconstructionFlag = false;
+
+	int				_width;
+	int				_height;
+	int				_mousePos[2];
+	unsigned char	_mouseEvent[3];
+	Camera*			_camera;
+	FluidRenderer*	_renderer;
 
 public:
 	FLIPEngine()
@@ -47,54 +60,32 @@ public:
 	}
 	~FLIPEngine() 
 	{
-		cudaGraphicsUnregisterResource(vboPosResource);
-		glDeleteBuffers(1, &posVbo);
 
-		cudaGraphicsUnregisterResource(vboColorResource);
-		glDeleteBuffers(1, &colorVbo);
 	}
 public:
 	void	init(void);
+	void	InitOpenGL(void);
+	void	InitCamera(void);
 	void	InitRenderer(void);
 	void	InitSimulation(REAL3& gravity, REAL dt);
 public:
-	void	simulation(bool advection, bool flag);
+	void	simulation();
 	void	reset(void);
+
 public:
-	void	draw(bool flag1, bool flag2, bool flag3, bool flag4);
+	void	idle();
+	void	draw();
+	void	DrawSimulationInfo(void);
+	void	DrawText(float x, float y, const char* text, void* font = NULL);
 	void	drawBoundary();
+	void	motion(int x, int y);
+	void	reshape(int w, int h);
+	void	mouse(int mouse_event, int state, int x, int y);
+	void	keyboard(unsigned char key, int x, int y);
+
+public:
 	void	ExportObj(const char* filePath);
-
-	float lerp(float a, float b, float t)
-	{
-		return a + t * (b - a);
-	}
-
-	// create a color ramp
-	void colorRamp(float t, float* r)
-	{
-		const int ncolors = 7;
-		float c[ncolors][3] =
-		{
-			{ 1.0, 0.0, 0.0, },
-			{ 1.0, 0.5, 0.0, },
-			{ 1.0, 1.0, 0.0, },
-			{ 0.0, 1.0, 0.0, },
-			{ 0.0, 1.0, 1.0, },
-			{ 0.0, 0.0, 1.0, },
-			{ 1.0, 0.0, 1.0, },
-		};
-		t = t * (ncolors - 1);
-		int i = (int)t;
-		float u = t - floorf(t);
-		//r[0] = lerp(c[i][0], c[i + 1][0], u);
-		//r[1] = lerp(c[i][1], c[i + 1][1], u);
-		//r[2] = lerp(c[i][2], c[i + 1][2], u);
-
-		r[0] = 1;
-		r[1] = 1;
-		r[2] = 1;
-	}
+	void	Capture(char* filename, int width, int height);
 };
 
 #endif

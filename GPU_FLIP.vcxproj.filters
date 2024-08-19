@@ -1,109 +1,127 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스">
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{3889837a-10e2-44cf-b6bf-fc6ad461570e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\Shader">
+      <UniqueIdentifier>{1c4dac29-480f-477f-be48-1c72d6a6959f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation">
+      <UniqueIdentifier>{f8cfa7b2-37ff-4f2f-8ca1-9f3340f0e48b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\소스">
+      <UniqueIdentifier>{4865ca7c-30a6-459e-a3f9-5d6dee6b217d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\헤더">
+      <UniqueIdentifier>{70f0a775-e82e-4170-b751-0704da7ccd60}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\소스">
       <UniqueIdentifier>{3a41ebcf-ab19-470f-a81e-c0e1162d8730}</UniqueIdentifier>
     </Filter>
-    <Filter Include="헤더">
+    <Filter Include="Simulation\헤더">
       <UniqueIdentifier>{89da34c4-26d8-484b-b8fa-7c0d513dce9b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shader">
-      <UniqueIdentifier>{1c4dac29-480f-477f-be48-1c72d6a6959f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>소스</Filter>
-    </ClCompile>
-    <ClCompile Include="FLIPEngine.cpp">
-      <Filter>소스</Filter>
-    </ClCompile>
     <ClCompile Include="MarchingCubesCuda.cpp">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </ClCompile>
     <ClCompile Include="Shader.cpp">
-      <Filter>소스</Filter>
+      <Filter>Rendering\소스</Filter>
     </ClCompile>
     <ClCompile Include="FluidRenderer.cpp">
-      <Filter>소스</Filter>
+      <Filter>Rendering\소스</Filter>
+    </ClCompile>
+    <ClCompile Include="FLIPEngine.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="FBO.cpp">
+      <Filter>Rendering\소스</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FLIP3D_Cuda.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="FLIP3D_Cuda.cuh">
-      <Filter>헤더</Filter>
-    </ClInclude>
-    <ClInclude Include="FLIPEngine.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="FLIPGrid.cuh">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="FLIPGrid.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="VolumeData.cuh">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="Hash.cuh">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="SurfaceTurbulence.cuh">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="SurfaceTurbulence.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="WeightKernels.cuh">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="LevelSetObject.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="defines.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="tables.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="MarchingCubesCuda.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="Vec3.h">
-      <Filter>헤더</Filter>
+      <Filter>Simulation\헤더</Filter>
     </ClInclude>
     <ClInclude Include="Shader.h">
-      <Filter>헤더</Filter>
+      <Filter>Rendering\헤더</Filter>
     </ClInclude>
     <ClInclude Include="FluidRenderer.h">
-      <Filter>헤더</Filter>
+      <Filter>Rendering\헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="FLIPEngine.h" />
+    <ClInclude Include="FBO.h">
+      <Filter>Rendering\헤더</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Rendering\헤더</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FLIP3D_Cuda.cu">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </CudaCompile>
     <CudaCompile Include="FLIPGrid.cu">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </CudaCompile>
     <CudaCompile Include="Hash.cu">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </CudaCompile>
     <CudaCompile Include="SurfaceTurbulence.cu">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </CudaCompile>
     <CudaCompile Include="MarchingCubes.cu">
-      <Filter>소스</Filter>
+      <Filter>Simulation\소스</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\particleSphere.fs">
-      <Filter>Shader</Filter>
+      <Filter>Rendering\Shader</Filter>
     </None>
     <None Include="Shader\particleSphere.vs">
-      <Filter>Shader</Filter>
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\normal.fs">
+      <Filter>Rendering\Shader</Filter>
     </None>
   </ItemGroup>
 </Project>

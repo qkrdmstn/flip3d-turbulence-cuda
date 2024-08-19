@@ -1,6 +1,10 @@
 #include "FLIPEngine.h"
 #include "Shader.h"
 
+#define SCREEN_CAPTURE 0
+#define OBJ_CAPTURE 0
+
+
 #define RES 64
 #define RENDERRES 256
 #define TURBULENCE 0
@@ -8,21 +12,41 @@
 
 void FLIPEngine::init()
 {
+	InitOpenGL();
+	InitCamera();
 	InitSimulation(make_REAL3(0, -9.81, 0.0), 0.005);
 	InitRenderer();
 }
 
-void	FLIPEngine::InitRenderer()
+void FLIPEngine::InitOpenGL()
 {
-	_renderer = new FluidRenderer();
-	_particleShader = new Shader("Shader\\particleSphere");
+	// 깊이값 사용 여부
+	glEnable(GL_DEPTH_TEST);
+	glClearColor(0.0f, 0.0f, 0.3f, 1.0f);
+
+	glewInit();
+	cudaGLSetGLDevice(0);
 }
 
-void	FLIPEngine::InitSimulation(REAL3& gravity, REAL dt)
+void FLIPEngine::InitCamera()
+{
+	_camera = new Camera();
+	_camera->CameraZoom(1.959998f);
+	_camera->CameraTranslate(0.02f, 0.14f);
+	_camera->CameraRotate(53.0f, -48.20f);
+}
+
+void FLIPEngine::InitRenderer()
+{
+	_renderer = new FluidRenderer();
+	_renderer->InitializeFluidRenderer(_fluid->_numFluidParticles);
+}
+
+void FLIPEngine::InitSimulation(REAL3& gravity, REAL dt)
 {
 	_gravity = gravity;
 	_dt = dt;
-	_frame = 0u;
+	_step = 0u;
 
 	_fluid = new FLIP3D_Cuda(RES);
 #if TURBULENCE
@@ -34,50 +58,12 @@ void	FLIPEngine::InitSimulation(REAL3& gravity, REAL dt)
 	_MC = new MarchingCubes_CUDA();
 	_MC->init(_fluid, _turbulence, RENDERRES, RENDERRES, RENDERRES);
 #endif
-
-	// allocate GPU data
-	unsigned int memSize = 4 * sizeof(float) * _fluid->_numFluidParticles;
-
-	// Pos VBO 생성
-	glGenBuffers(1, &posVbo);
-	glBindBuffer(GL_ARRAY_BUFFER, posVbo);
-	glBufferData(GL_ARRAY_BUFFER, memSize, 0, GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	cudaGraphicsGLRegisterBuffer(&vboPosResource, posVbo, cudaGraphicsMapFlagsNone);
-
-	// Color VBO 생성
-	glGenBuffers(1, &colorVbo);
-	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
-	glBufferData(GL_ARRAY_BUFFER, memSize, 0, GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	cudaGraphicsGLRegisterBuffer(&vboColorResource, colorVbo, cudaGraphicsMapFlagsNone);
-
-	// fill color buffer
-	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
-	float* data = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	float* ptr = data;
-
-	for (uint i = 0; i < _fluid->_numFluidParticles; i++)
-	{
-		float t = i / (float)_fluid->_numFluidParticles;
-#if 0
-		* ptr++ = rand() / (float)RAND_MAX;
-		*ptr++ = rand() / (float)RAND_MAX;
-		*ptr++ = rand() / (float)RAND_MAX;
-#else
-		colorRamp(t, ptr);
-		ptr += 3;
-#endif
-		* ptr++ = 1.0f;
-	}
-
-	glUnmapBuffer(GL_ARRAY_BUFFER);
 }
 
-void	FLIPEngine::simulation(bool advection, bool flag)
+void FLIPEngine::simulation(void)
 {
-	printf("-------------- Step %d --------------\n", _frame);
-	if (advection || _frame == 0)
+	printf("-------------- Step %d --------------\n", _step);
+	if (advection || _step == 0)
 	{
 //		if (flag)
 //		{
@@ -91,32 +77,25 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 		_fluid->ComputeParticleDensity_kernel();
 		_fluid->ComputeExternalForce_kernel(_gravity, _dt);
 
-		//if (_frame <= 60)
+		//if (_step <= 60)
 		{
 			_fluid->MoveObject();
 			_fluid->CollisionObject_kernel(_dt);
 		}
 
 		_fluid->SolvePICFLIP();
-
  		_fluid->AdvectParticle_kernel(_dt);
-
 		_fluid->Correct_kernel(_dt);
 
-
-		REAL3* dptr;
-		size_t numBytes;
-		cudaGraphicsMapResources(1, &vboPosResource, 0);
-		cudaGraphicsResourceGetMappedPointer((void**)&dptr, &numBytes, vboPosResource);
-		
+		//VBO Update
+		float3* dptr = _renderer->CudaGraphicResourceMapping();
 		_fluid->CopyPosToVBO(dptr);
-
-		cudaGraphicsUnmapResources(1, &vboPosResource, 0);
+		_renderer->CudaGraphicResourceUnMapping();
 
 #if TURBULENCE
 		_turbulence->Advection_kernel();
 
-		if (_frame == 0)
+		if (_step == 0)
 		{
 			int iter1 = 24;
 			for (int i = 0; i < iter1; i++)
@@ -140,8 +119,8 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 	}
 
 	printf("SurfaceParticles %d\n", _turbulence->_numFineParticles);
-	if(_frame != 0)
-		_turbulence->WaveSimulation_kernel(_frame);
+	if(_step != 0)
+		_turbulence->WaveSimulation_kernel(_step);
 
 #else
 	}
@@ -157,70 +136,270 @@ void	FLIPEngine::simulation(bool advection, bool flag)
 #if TURBULENCE
 	_turbulence->CopyToHost();
 #endif
-	//if (_frame > 500)
-	//	exit(0);
-	_frame++;
+
 }
 
-void	FLIPEngine::reset(void)
+void FLIPEngine::reset(void)
 {
 
 }
 
-void FLIPEngine::draw(bool flag1, bool flag2, bool flag3, bool flag4)
+
+void FLIPEngine::idle()
 {
-	glEnable(GL_POINT_SPRITE_ARB);
-	glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
-	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
-	glDepthMask(GL_TRUE);
-	glEnable(GL_DEPTH_TEST);
+	if (_simulation) {
+		if (/*_step <= 1000 &&*/ _step % 3 == 1)
+		{
+#if SCREEN_CAPTURE
 
-	_particleShader->enable();
-	glUniform1f(glGetUniformLocation(_particleShader->_program, "pointScale"),
-		800 / tanf(60.0 * 0.5f * (float)M_PI / 180.0f));
-	glUniform1f(glGetUniformLocation(_particleShader->_program, "pointRadius"),
-		0.125f * 0.15f);
+			string path = "capture\\image\\Fluid" + to_string(cnt) + ".jpg";
+			char* strPath = const_cast<char*>((path).c_str());
+			Capture(strPath, _width, _height);
+#endif
 
-	// OpenGL에서 VBO를 사용하여 렌더링
-	glColor3f(1, 1, 1);
-	//Pos Setting
-	glBindBuffer(GL_ARRAY_BUFFER, posVbo);
-	glVertexPointer(3, GL_FLOAT, 0, 0);
-	glEnableClientState(GL_VERTEX_ARRAY);
+#if OBJ_CAPTURE
+			string objPath = "capture\\obj\\Fluid" + to_string(cnt) + ".obj";
+			char* objStrPath = const_cast<char*>((objPath).c_str());
+			_engine->ExportObj(objStrPath);
+#endif	
+			cnt++;
+		}
+		_frame++;
+		_curTime = glutGet(GLUT_ELAPSED_TIME);
+		if (_curTime - _timebase > 1000)
+		{
+			fps = _frame * 1000.0 / (_curTime - _timebase);
+			_timebase = _curTime;
+			_frame = 0;
+		}
 
-	//Color Setting
-	glBindBuffer(GL_ARRAY_BUFFER, colorVbo);
-	glColorPointer(4, GL_FLOAT, 0, 0);
-	glEnableClientState(GL_COLOR_ARRAY);
+		simulation();
+		_step++;
 
-	glDrawArrays(GL_POINTS, 0, _fluid->_numFluidParticles);
+		//if (_step == 600) {
+		//	exit(0);
+		//}
+	}
+	glutPostRedisplay();
+}
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
+void FLIPEngine::draw()
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
 
-	_particleShader->ban();
-	glDisable(GL_POINT_SPRITE_ARB);
+	glUseProgram(0);
+	_camera->SetCameraForOpenGL();
 
-	//if (flag1)
+	_renderer->Rendering();
+	//if (_fluidFlag)
 	//	_fluid->draw();
 
 #if TURBULENCE
-	if (flag2)
+	if (_turbulenceBaseFlag)
 		_turbulence->drawFineParticles();
-	if (flag3)
+	if (_turbulenceDisplayFlag)
 		_turbulence->drawDisplayParticles();
 #endif
 
 #if SURFACERECONSTRUCTION
-	if (flag4)
+	if (_surfaceReconstructionFlag)
 		_MC->renderSurface();
 #endif
 	_fluid->drawBoundingObject();
 	//drawBoundary();
+
+	DrawSimulationInfo();
+	glutSwapBuffers();
 }
 
-void	FLIPEngine::drawBoundary()
+void FLIPEngine::DrawSimulationInfo(void)
+{
+	glEnable(GL_LIGHTING); // 조명 활성화
+	glEnable(GL_LIGHT0); // 첫번째 조명
+	char text[100];
+
+	sprintf(text, "FPS: %f", fps);
+	DrawText(10.0f, 780.0f, text);
+
+	sprintf(text, "Frame: %d", _step);
+	DrawText(10.0f, 760.0f, text);
+
+	sprintf(text, "FLIP Particles: %d", _fluid->_numParticles);
+	DrawText(10.0f, 740.0f, text);
+
+#if TURBULENCE
+	sprintf(text, "Turbulence Particles: %d", _turbulence->_numFineParticles);
+	DrawText(10.0f, 720.0f, text);
+#endif
+	glDisable(GL_LIGHTING);
+}
+
+void FLIPEngine::DrawText(float x, float y, const char* text, void* font)
+{
+	glColor3f(1, 1, 1);
+	glDisable(GL_DEPTH_TEST);
+
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0.0, (double)_width, 0.0, (double)_height, -1.0, 1.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	if (font == NULL) {
+		font = GLUT_BITMAP_9_BY_15;
+	}
+
+	size_t len = strlen(text);
+
+	glRasterPos2f(x, y);
+	for (const char* letter = text; letter < text + len; letter++) {
+		if (*letter == '\n') {
+			y -= 12.0f;
+			glRasterPos2f(x, y);
+		}
+		glutBitmapCharacter(font, *letter);
+	}
+
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glEnable(GL_DEPTH_TEST);
+}
+
+void FLIPEngine::reshape(int w, int h)
+{
+	if (w == 0) {
+		h = 1;
+	}
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	_camera->SetPerspective(45, (float)w / h, 0.1f, 100000.0f);
+	gluPerspective(45, (float)w / h, 0.1, 100000);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+}
+
+void FLIPEngine::mouse(int mouse_event, int state, int x, int y)
+{
+	_mousePos[0] = x;
+	_mousePos[1] = y;
+	switch (mouse_event)
+	{
+	case GLUT_LEFT_BUTTON:
+		_mouseEvent[0] = ((GLUT_DOWN == state) ? 1 : 0);
+		break;
+	case GLUT_MIDDLE_BUTTON:
+		_mouseEvent[1] = ((GLUT_DOWN == state) ? 1 : 0);
+		break;
+	case GLUT_RIGHT_BUTTON:
+		_mouseEvent[2] = ((GLUT_DOWN == state) ? 1 : 0);
+		break;
+	default:
+		break;
+	}
+	glutPostRedisplay();
+}
+
+void FLIPEngine::keyboard(unsigned char key, int x, int y)
+{
+	switch (key)
+	{
+	case 'Q':
+	case 'q':
+		exit(0);
+	case '1':
+		_fluidFlag = !_fluidFlag;
+		if (_fluidFlag)
+			printf("FLIP render On\n");
+		else
+			printf("FLIP render Off\n");
+		break;
+	case '2':
+		_turbulenceBaseFlag = !_turbulenceBaseFlag;
+		if (_turbulenceBaseFlag)
+			printf("Turbulence Base render On\n");
+		else
+			printf("Turbulence Base render Off\n");
+		break;
+	case '3':
+		_turbulenceDisplayFlag = !_turbulenceDisplayFlag;
+		if (_turbulenceDisplayFlag)
+			printf("Turbulence Display render On\n");
+		else
+			printf("Turbulence Display render Off\n");
+		break;
+	case '4':
+		_surfaceReconstructionFlag = !_surfaceReconstructionFlag;
+		if (_surfaceReconstructionFlag)
+			printf("MarchingCube render On\n");
+		else
+			printf("MarchingCube render Off\n");
+		break;
+	case ' ':
+		_simulation = !_simulation;
+		if (!_simulation)
+			printf("Simulation Pause\n");
+		else
+			printf("Simulation Start\n");
+		break;
+	case 'c':
+		advection = !advection;
+		if (!advection)
+			printf("advection Pause\n");
+		else
+			printf("advection Start\n");
+		break;
+	case 'v':
+		flag = !flag;
+		if (!flag)
+			printf("flag false\n");
+		else
+			printf("flag true\n");
+		break;
+	default:
+		break;
+	}
+	glutPostRedisplay();
+}
+
+void FLIPEngine::motion(int x, int y)
+{
+	int diffx = x - _mousePos[0];
+	int diffy = y - _mousePos[1];
+
+	_mousePos[0] = x;
+	_mousePos[1] = y;
+
+	if (_mouseEvent[0])
+	{
+		float factorX = (float)0.2 * diffy;
+		float factorY = (float)0.2 * diffx;
+
+		_camera->CameraRotate(factorX, factorY);
+	}
+	else if (_mouseEvent[1])
+	{
+		float factorX = (float)0.005f * diffx;
+		float factorY = -(float)0.005f * diffy;
+
+		_camera->CameraTranslate(factorX, factorY);
+	}
+	else if (_mouseEvent[2])
+	{
+		float factor = -(float)0.02f * diffx;
+
+		_camera->CameraZoom(factor);
+	}
+
+	glutPostRedisplay();
+}
+
+void FLIPEngine::drawBoundary()
 {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
@@ -293,4 +472,34 @@ void FLIPEngine::ExportObj(const char* filePath)
 	}
 
 	fout.close();
+}
+
+void FLIPEngine::Capture(char* filename, int width, int height)
+{
+	BITMAPFILEHEADER bf;
+	BITMAPINFOHEADER bi;
+	unsigned char* image = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 3);
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (image != NULL) {
+		if (file != NULL) {
+			glReadPixels(0, 0, width, height, 0x80E0, GL_UNSIGNED_BYTE, image);
+			memset(&bf, 0, sizeof(bf));
+			memset(&bi, 0, sizeof(bi));
+			bf.bfType = 'MB';
+			bf.bfSize = sizeof(bf) + sizeof(bi) + width * height * 3;
+			bf.bfOffBits = sizeof(bf) + sizeof(bi);
+			bi.biSize = sizeof(bi);
+			bi.biWidth = width;
+			bi.biHeight = height;
+			bi.biPlanes = 1;
+			bi.biBitCount = 24;
+			bi.biSizeImage = width * height * 3;
+			fwrite(&bf, sizeof(bf), 1, file);
+			fwrite(&bi, sizeof(bi), 1, file);
+			fwrite(image, sizeof(unsigned char), height * width * 3, file);
+			fclose(file);
+		}
+		free(image);
+	}
 }
