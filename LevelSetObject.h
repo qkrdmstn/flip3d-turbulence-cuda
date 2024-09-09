@@ -189,7 +189,7 @@ static void  __inline__ __host__  RotateMovingBox_kernel(OBB& box, bool type)
 {
 	box._center0 = box._center;
 
-	REAL radian = type == true ? 1.5 : -1.5;
+	REAL radian = type == true ? 2.5 : -2.5;
 	REAL theta = radian * 0.017453292519943295769236907684886;
 	REAL3 pivot = make_REAL3(0.5, 0.0, 0.5);
 	REAL3 normal = make_REAL3(0.0, 1.0, 0.0);

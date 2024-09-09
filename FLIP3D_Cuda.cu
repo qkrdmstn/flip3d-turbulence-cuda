@@ -1126,7 +1126,10 @@ void FLIP3D_Cuda::SetHashTable_kernel(void)
 
 void FLIP3D_Cuda::CalculateHash_kernel(void)
 {
-	CalculateHash_D << <divup(_numParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	uint numThreads, numBlocks;
+	ComputeGridSize(_numParticles, 128, numBlocks, numThreads);
+
+	CalculateHash_D << < numBlocks, numThreads >> > 
 		(d_GridHash(), d_GridIdx(), d_CurPos(), _gridRes, _numParticles);
 }
 

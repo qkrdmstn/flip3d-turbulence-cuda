@@ -39,7 +39,7 @@ void FLIPEngine::InitCamera()
 void FLIPEngine::InitRenderer()
 {
 	_renderer = new FluidRenderer();
-	_renderer->InitializeFluidRenderer(_fluid->_numFluidParticles);
+	_renderer->InitializeFluidRenderer(_camera, _fluid->_numFluidParticles);
 }
 
 void FLIPEngine::InitSimulation(REAL3& gravity, REAL dt)

@@ -575,9 +575,18 @@ void CopyToTotalParticles_kernel(FLIP3D_Cuda* _fluid, SurfaceTurbulence* _turbul
 	//	(d_TotalParticles, d_Type, _turbulence->d_Pos(), _turbulence->_numFineParticles, _fluid->_numParticles);
 }
 
+void ComputeGridSize(uint n, uint blockSize, uint& numBlocks, uint& numThreads)
+{
+	numThreads = min(blockSize, n);
+	numBlocks = divup(n, numThreads);
+}
+
 void CalculateHash_kernel(uint* d_GridHash, uint* d_GridIdx, REAL3* d_TotalParticles, uint res, uint _numTotalParticles)
 {
-	CalculateHash_D << <divup(_numTotalParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	uint numThreads, numBlocks;
+	ComputeGridSize(_numTotalParticles, 128, numBlocks, numThreads);
+
+	CalculateHash_D << <numBlocks, numThreads >> >
 		(d_GridHash, d_GridIdx, d_TotalParticles, res, _numTotalParticles);
 }
 
@@ -588,11 +597,6 @@ void SortParticle_kernel(uint* d_GridHash, uint* d_GridIdx, uint _numTotalPartic
 		thrust::device_ptr<uint>(d_GridIdx));
 }
 
-void ComputeGridSize(uint n, uint blockSize, uint& numBlocks, uint& numThreads)
-{
-	numThreads = min(blockSize, n);
-	numBlocks = divup(n, numThreads);
-}
 
 void FindCellStart_kernel(uint* d_GridHash, uint* d_CellStart, uint* d_CellEnd,uint _numTotalParticles)
 {

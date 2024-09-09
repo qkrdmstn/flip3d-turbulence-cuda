@@ -27,17 +27,11 @@
     <ClCompile Include="MarchingCubesCuda.cpp">
       <Filter>Simulation\소스</Filter>
     </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>Rendering\소스</Filter>
-    </ClCompile>
     <ClCompile Include="FluidRenderer.cpp">
       <Filter>Rendering\소스</Filter>
     </ClCompile>
     <ClCompile Include="FLIPEngine.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="FBO.cpp">
-      <Filter>Rendering\소스</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FLIP3D_Cuda.h">
@@ -89,9 +83,6 @@
       <Filter>Rendering\헤더</Filter>
     </ClInclude>
     <ClInclude Include="FLIPEngine.h" />
-    <ClInclude Include="FBO.h">
-      <Filter>Rendering\헤더</Filter>
-    </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>Rendering\헤더</Filter>
     </ClInclude>
@@ -114,13 +105,37 @@
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\particleSphere.fs">
+    <None Include="Shader\depth.fs">
       <Filter>Rendering\Shader</Filter>
     </None>
-    <None Include="Shader\particleSphere.vs">
+    <None Include="Shader\depth.vs">
       <Filter>Rendering\Shader</Filter>
     </None>
-    <None Include="Shader\normal.fs">
+    <None Include="Shader\final.fs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\final.vs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\fluidFinal.fs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\fluidFinal.vs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\plane.fs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\plane.vs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\bilateralBlur.fs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\bilateralBlur.vs">
+      <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\thickness.fs">
       <Filter>Rendering\Shader</Filter>
     </None>
   </ItemGroup>

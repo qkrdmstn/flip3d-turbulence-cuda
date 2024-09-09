@@ -6,14 +6,25 @@
 #include <cuda_gl_interop.h>
 #include <helper_gl.h>
 #include <helper_cuda.h> 
+#include "glm/glm.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "Shader.h"
-#include "FBO.h"
+#include "Camera.h"
 
 class FluidRenderer
 {
 public:
 	int _numParticles;
-	float _sphereRadius;
+	int _width = 800;
+	int _height = 800;
+	float aspectRatio = _width / _height;
+	glm::vec2 _screenSize = glm::vec2(_width, _height);
+	glm::vec2 _blurDirX = glm::vec2(1.0f / _screenSize.x, 0.0f);
+	glm::vec2 _blurDirY = glm::vec2(0.0f, 1.0f / _screenSize.y);
+	glm::vec4 color = glm::vec4(0.275f, 0.75f, 0.85f, 0.8f);
+	//glm::vec4 color = glm::vec4(0.5,0.5,1,1);
+	float _sphereRadius = 0.125f * 0.05f;
+	float _filterRadius = 15.0f;
 
 public: //VBO
 	GLuint _posVbo;
@@ -21,34 +32,44 @@ public: //VBO
 	struct cudaGraphicsResource* _vboPosResource;
 	struct cudaGraphicsResource* _vboColorResource;
 
-public: //FBO
-	FBO _depthFBO;
-	FBO _normalFBO;
-
-public: // Texture
-	GLuint _depthTex;
-	GLuint _normalTex;
-
 public: //Shader
+	Shader* _plane;
 	Shader* _depthShader;
-	Shader* _normalShader;
+	BlurShader* _blurShader;
+	Shader* _thicknessShader;
+	Shader* _fluidFinalShader;
+	Shader* _finalShader;
+
+public:
+	Camera* _camera;
 
 public:
 	FluidRenderer(void);
 	~FluidRenderer(void);
 
-	void InitializeFluidRenderer(int _numParticles);
+	void InitializeFluidRenderer(Camera *camera, int _numParticles);
 	void InitShader(void);
 	void InitVBO(void);
 	void InitFBO(void);
 public:
 	float3* CudaGraphicResourceMapping(void);
 	void CudaGraphicResourceUnMapping(void);
-	
+
 public:
 	void Rendering(void);
+	void InfintePlane(void);
 	void GenerateDepth(void);
-	void CalcNormal(void);
+	void SmoothDepth(void);
+	void GenerateThickness(void);
+	void FinalRendering(void);
+
+public:
+	void setInt(Shader* shader, const int& x, const GLchar* name);
+	void setFloat(Shader* shader, const float& x, const GLchar* name);
+	void setVec2(Shader* shader, const glm::vec2& v, const GLchar* name);
+	void setVec3(Shader* shader, const glm::vec3& v, const GLchar* name);
+	void setVec4(Shader* shader, const glm::vec4& v, const GLchar* name);
+	void setMatrix(Shader* shader, const glm::mat4& m, const GLchar* name);
 
 public:
 	float lerp(float a, float b, float t)

@@ -13,6 +13,7 @@ FLIPEngine* _engine;
 void Init(void)
 {
 	_engine = new FLIPEngine();
+
 }
 
 void Update(void)
@@ -57,7 +58,6 @@ void Motion(int x, int y)
 
 void main(int argc, char** argv)
 {
-	
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowSize(800, 800);

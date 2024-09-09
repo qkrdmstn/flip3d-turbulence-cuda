@@ -471,7 +471,10 @@ void SurfaceTurbulence::SetHashTable_kernel(void)
 
 void SurfaceTurbulence::CalculateHash_kernel(void)
 {
-	CalculateHash_D << <divup(_numFineParticles, BLOCK_SIZE), BLOCK_SIZE >> >
+	uint numThreads, numBlocks;
+	ComputeGridSize(_numFineParticles, 128, numBlocks, numThreads);
+
+	CalculateHash_D << <numBlocks, numThreads >> >
 		(d_GridHash(), d_GridIdx(), d_Pos(), maintenanceParam._fineRes, _numFineParticles);
 }
 
