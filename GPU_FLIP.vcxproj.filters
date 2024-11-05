@@ -22,6 +22,9 @@
     <Filter Include="Simulation\헤더">
       <UniqueIdentifier>{89da34c4-26d8-484b-b8fa-7c0d513dce9b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rendering\Shader\NarrowFlitering">
+      <UniqueIdentifier>{d4d2000d-611e-4472-8545-52fbf85cdb10}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MarchingCubesCuda.cpp">
@@ -137,6 +140,12 @@
     </None>
     <None Include="Shader\thickness.fs">
       <Filter>Rendering\Shader</Filter>
+    </None>
+    <None Include="Shader\narrowRangeFilter.fs">
+      <Filter>Rendering\Shader\NarrowFlitering</Filter>
+    </None>
+    <None Include="Shader\narrowDepth.fs">
+      <Filter>Rendering\Shader\NarrowFlitering</Filter>
     </None>
   </ItemGroup>
 </Project>

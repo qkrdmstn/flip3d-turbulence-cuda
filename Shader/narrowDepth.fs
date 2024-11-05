@@ -6,6 +6,27 @@ uniform mat4 mView;
 uniform mat4 projection;
 uniform float pointRadius;
 
+const float farZ  = 1000.0f;
+const float nearZ = 0.1f;
+
+float DepthToNormalizedDepth(float z) 
+{
+    float a = (farZ + nearZ) / (farZ - nearZ);
+    float b = 2.0 * farZ * nearZ / (farZ - nearZ);
+    float normalizedDepth = (a * z + b) / z;
+
+    return normalizedDepth;
+}
+
+float NormalizedDepthToDepth(float zn)
+{
+    float a = (farZ + nearZ) / (farZ - nearZ);
+    float b = 2.0 * farZ * nearZ / (farZ - nearZ);
+    float depth = b / (zn - a);
+
+    return depth;
+}
+
 //out vec4 fragColor;
 void main()
 {
@@ -15,11 +36,8 @@ void main()
     float mag = dot(normal.xy, normal.xy); //x^2 + y^2 원의 방정식
     if (mag > 1.0) discard; // kill pixels outside circle
     normal.z = sqrt(1.0f - mag); //구 방정식으로 법선 벡터 계산
-    
-    //// calculate depth
+
+    // calculate depth
     vec4 pixelPos = vec4(pos + normal * pointRadius, 1.0);
-    vec4 clipSpacePos = projection * pixelPos;
-    
-    float depth = (clipSpacePos.z / clipSpacePos.w);
-    gl_FragDepth = depth;
+    gl_FragDepth =  DepthToNormalizedDepth(pixelPos.z);
 }

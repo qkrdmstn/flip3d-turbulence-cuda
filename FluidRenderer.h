@@ -23,8 +23,9 @@ public:
 	glm::vec2 _blurDirY = glm::vec2(0.0f, 1.0f / _screenSize.y);
 	glm::vec4 color = glm::vec4(0.275f, 0.75f, 0.85f, 0.8f);
 	//glm::vec4 color = glm::vec4(0.5,0.5,1,1);
-	float _sphereRadius = 0.125f * 0.05f;
+	float _sphereRadius = 0.125f * 0.075f;
 	float _filterRadius = 15.0f;
+	float _MaxFilterRadius = 20.0f;
 
 public: //VBO
 	GLuint _posVbo;
@@ -35,7 +36,8 @@ public: //VBO
 public: //Shader
 	Shader* _plane;
 	Shader* _depthShader;
-	BlurShader* _blurShader;
+	BlurShader* _bilateralBlurShader;
+	BlurShader* _narrowBlurShader;
 	Shader* _thicknessShader;
 	Shader* _fluidFinalShader;
 	Shader* _finalShader;
@@ -59,7 +61,8 @@ public:
 	void Rendering(void);
 	void InfintePlane(void);
 	void GenerateDepth(void);
-	void SmoothDepth(void);
+	void BilateralFilteringDepth(void);
+	void NarrowFilteringDepth(void);
 	void GenerateThickness(void);
 	void FinalRendering(void);
 

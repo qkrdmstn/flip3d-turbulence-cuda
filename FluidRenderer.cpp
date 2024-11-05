@@ -1,5 +1,7 @@
 #include "FluidRenderer.h"
 
+#define NARROW_FILTERING 1
+
 FluidRenderer::FluidRenderer(void)
 {
 
@@ -27,10 +29,17 @@ void FluidRenderer::InitializeFluidRenderer(Camera *camera, int numParticles)
 void FluidRenderer::InitShader(void)
 {
 	_plane = new Shader("Shader\\plane.vs", "Shader\\plane.fs");
-	_depthShader = new Shader("Shader\\depth.vs", "Shader\\depth.fs");
-	_blurShader = new BlurShader("Shader\\bilateralBlur.vs", "Shader\\bilateralBlur.fs");
 	_thicknessShader = new Shader("Shader\\depth.vs", "Shader\\thickness.fs");
 	_fluidFinalShader = new Shader("Shader\\fluidFinal.vs", "Shader\\fluidFinal.fs");
+
+#if NARROW_FILTERING
+	_depthShader = new Shader("Shader\\depth.vs", "Shader\\narrowDepth.fs");
+	_narrowBlurShader = new BlurShader("Shader\\bilateralBlur.vs", "Shader\\narrowRangeFilter.fs");
+#else
+	_depthShader = new Shader("Shader\\depth.vs", "Shader\\depth.fs");
+	_bilateralBlurShader = new BlurShader("Shader\\bilateralBlur.vs", "Shader\\bilateralBlur.fs");
+#endif
+
 	//_finalShader = new Shader("Shader\\final.vs", "Shader\\final.fs");
 }
 
@@ -90,15 +99,32 @@ void FluidRenderer::InitFBO(void)
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depthShader->tex, 0);
 
 	//Blur buffer
-	_blurShader->initFBO(_blurShader->fboV);
-	glBindFramebuffer(GL_FRAMEBUFFER, _blurShader->fboV);
-	_blurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _blurShader->texV);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _blurShader->texV, 0);
+#if NARROW_FILTERING
+	_narrowBlurShader->initFBO(_narrowBlurShader->fboV);
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fboV);
+	_narrowBlurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _narrowBlurShader->texV);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _narrowBlurShader->texV, 0);
 
-	_blurShader->initFBO(_blurShader->fboH);
-	glBindFramebuffer(GL_FRAMEBUFFER, _blurShader->fboH);
-	_blurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _blurShader->texH);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _blurShader->texH, 0);
+	_narrowBlurShader->initFBO(_narrowBlurShader->fboH);
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fboH);
+	_narrowBlurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _narrowBlurShader->texH);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _narrowBlurShader->texH, 0);
+
+	_narrowBlurShader->initFBO(_narrowBlurShader->fbo2D);
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fbo2D);
+	_narrowBlurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _narrowBlurShader->tex2D);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _narrowBlurShader->tex2D, 0);
+#else
+	_bilateralBlurShader->initFBO(_bilateralBlurShader->fboV);
+	glBindFramebuffer(GL_FRAMEBUFFER, _bilateralBlurShader->fboV);
+	_bilateralBlurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _bilateralBlurShader->texV);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _bilateralBlurShader->texV, 0);
+
+	_bilateralBlurShader->initFBO(_bilateralBlurShader->fboH);
+	glBindFramebuffer(GL_FRAMEBUFFER, _bilateralBlurShader->fboH);
+	_bilateralBlurShader->initTexture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, _bilateralBlurShader->texH);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _bilateralBlurShader->texH, 0);
+#endif
 
 	//Thickness buffer
 	_thicknessShader->initFBO(_thicknessShader->fbo);
@@ -142,7 +168,12 @@ void FluidRenderer::Rendering(void)
 	
 	InfintePlane();
 	GenerateDepth();
-	SmoothDepth();
+
+#if NARROW_FILTERING
+	NarrowFilteringDepth();
+#else
+	BilateralFilteringDepth();
+#endif
 	GenerateThickness();
 	FinalRendering();
 }
@@ -189,54 +220,137 @@ void FluidRenderer::GenerateDepth(void)
 	glDisable(GL_VERTEX_PROGRAM_POINT_SIZE);
 }
 
-void FluidRenderer::SmoothDepth(void)
+void FluidRenderer::BilateralFilteringDepth(void)
 {
 	////--------------------Particle Blur-------------------------
-	glUseProgram(_blurShader->program);
+	glUseProgram(_bilateralBlurShader->program);
 
 	//Vertical blur
-	glBindFramebuffer(GL_FRAMEBUFFER, _blurShader->fboV);
+	glBindFramebuffer(GL_FRAMEBUFFER, _bilateralBlurShader->fboV);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	_blurShader->shaderVAOQuad();
+	_bilateralBlurShader->shaderVAOQuad();
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, _depthShader->tex);
-	GLint depthMap = glGetUniformLocation(_blurShader->program, "depthMap");
+	GLint depthMap = glGetUniformLocation(_bilateralBlurShader->program, "depthMap");
 	glUniform1i(depthMap, 0);
 
-	setMatrix(_blurShader, _camera->GetModelViewMatrix(), "projection");
-	setVec2(_blurShader, _screenSize, "screenSize");
-	setVec2(_blurShader, _blurDirY, "blurDir");
-	setFloat(_blurShader, _filterRadius, "filterRadius");
+	setMatrix(_bilateralBlurShader, _camera->GetModelViewMatrix(), "projection");
+	setVec2(_bilateralBlurShader, _screenSize, "screenSize");
+	setVec2(_bilateralBlurShader, _blurDirY, "blurDir");
+	setFloat(_bilateralBlurShader, _filterRadius, "filterRadius");
 	//setFloat(blur, width / aspectRatio * (1.0f / (tanf(cam.zoom*0.5f))), "blurScale");
-	setFloat(_blurShader, 0.1f, "blurScale");
+	setFloat(_bilateralBlurShader, 0.1f, "blurScale");
 
 	glEnable(GL_DEPTH_TEST);
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 	//Horizontal blur
-	glBindFramebuffer(GL_FRAMEBUFFER, _blurShader->fboH);
+	glBindFramebuffer(GL_FRAMEBUFFER, _bilateralBlurShader->fboH);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _blurShader->texV);
-	depthMap = glGetUniformLocation(_blurShader->program, "depthMap");
+	glBindTexture(GL_TEXTURE_2D, _bilateralBlurShader->texV);
+	depthMap = glGetUniformLocation(_bilateralBlurShader->program, "depthMap");
 	glUniform1i(depthMap, 0);
 
-	setMatrix(_blurShader, _camera->GetModelViewMatrix(), "projection");
-	setVec2(_blurShader, _screenSize, "screenSize");
-	setVec2(_blurShader, _blurDirX, "blurDir");
-	setFloat(_blurShader, _filterRadius, "filterRadius");
+	setMatrix(_bilateralBlurShader, _camera->GetModelViewMatrix(), "projection");
+	setVec2(_bilateralBlurShader, _screenSize, "screenSize");
+	setVec2(_bilateralBlurShader, _blurDirX, "blurDir");
+	setFloat(_bilateralBlurShader, _filterRadius, "filterRadius");
 	//setFloat(blur, width / aspectRatio * (1.0f / (tanf(cam.zoom*0.5f))), "blurScale");
-	setFloat(_blurShader, 0.1f, "blurScale");
+	setFloat(_bilateralBlurShader, 0.1f, "blurScale");
+
+	glEnable(GL_DEPTH_TEST);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	glDisable(GL_DEPTH_TEST);
+}
+
+void FluidRenderer::NarrowFilteringDepth(void)
+{
+	////--------------------Particle Blur-------------------------
+	glUseProgram(_narrowBlurShader->program);
+
+	//Vertical blur
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fboV);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	_narrowBlurShader->shaderVAOQuad();
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _depthShader->tex);
+	GLint depthMap = glGetUniformLocation(_narrowBlurShader->program, "depthMap");
+	glUniform1i(depthMap, 0);
+
+	setFloat(_narrowBlurShader, _sphereRadius, "pointRadius");
+	setInt(_narrowBlurShader, (int)_filterRadius, "filterRadius");
+	setInt(_narrowBlurShader, (int)_MaxFilterRadius, "maxFilterRadius");
+	setInt(_narrowBlurShader, (int)_screenSize.x, "screenWidth");
+	setInt(_narrowBlurShader, (int)_screenSize.y, "screenHeight");
+	setInt(_narrowBlurShader, 1, "doFilter1D");
+	setInt(_narrowBlurShader, 0, "blurDir");
+	//setFloat(blur, width / aspectRatio * (1.0f / (tanf(cam.zoom*0.5f))), "blurScale");
+
+	glEnable(GL_DEPTH_TEST);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	//Horizontal blur
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fboH);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _narrowBlurShader->texV);
+	depthMap = glGetUniformLocation(_narrowBlurShader->program, "depthMap");
+	glUniform1i(depthMap, 0);
+
+	setFloat(_narrowBlurShader, _sphereRadius, "pointRadius");
+	setInt(_narrowBlurShader, (int)_filterRadius, "filterRadius");
+	setInt(_narrowBlurShader, (int)_MaxFilterRadius, "maxFilterRadius");
+	setInt(_narrowBlurShader, (int)_screenSize.x, "screenWidth");
+	setInt(_narrowBlurShader, (int)_screenSize.y, "screenHeight");
+	setInt(_narrowBlurShader, 1, "doFilter1D");
+	setInt(_narrowBlurShader, 1, "blurDir");
+
+	glEnable(GL_DEPTH_TEST);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	//Clean-Up 2D blur
+	glBindFramebuffer(GL_FRAMEBUFFER, _narrowBlurShader->fbo2D);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _narrowBlurShader->texH);
+	depthMap = glGetUniformLocation(_narrowBlurShader->program, "depthMap");
+	glUniform1i(depthMap, 0);
+
+	setFloat(_narrowBlurShader, _sphereRadius, "pointRadius");
+	setInt(_narrowBlurShader, (int)_filterRadius, "filterRadius");
+	setInt(_narrowBlurShader, (int)_MaxFilterRadius, "maxFilterRadius");
+	setInt(_narrowBlurShader, (int)_screenSize.x, "screenWidth");
+	setInt(_narrowBlurShader, (int)_screenSize.y, "screenHeight");
+	setInt(_narrowBlurShader, 0, "doFilter1D");
+	setInt(_narrowBlurShader, 1, "blurDir");
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -284,11 +398,17 @@ void FluidRenderer::FinalRendering(void)
 
 	_fluidFinalShader->shaderVAOQuad();
 
+#if NARROW_FILTERING
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _blurShader->texH);
+	glBindTexture(GL_TEXTURE_2D, _narrowBlurShader->tex2D);
 	GLuint depthMap = glGetUniformLocation(_fluidFinalShader->program, "depthMap");
 	glUniform1i(depthMap, 0);
-
+#else
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _bilateralBlurShader->texH);
+	GLuint depthMap = glGetUniformLocation(_fluidFinalShader->program, "depthMap");
+	glUniform1i(depthMap, 0);
+#endif
 	//glActiveTexture(GL_TEXTURE0);
 	//glBindTexture(GL_TEXTURE_2D, _depthShader->tex);
 	//GLuint depthMap = glGetUniformLocation(_fluidFinalShader->program, "depthMap");

@@ -104,7 +104,7 @@ void main() {
     //Compositing everything
     vec3 finalColor = diffuse + (mix(refract, reflect, fresnel) + specular) * color.w;
 
-	fragColor = vec4(finalColor, 1.0);
+	fragColor = vec4(vec3(finalColor), 1.0);
 
 	gl_FragDepth = depth;
 }

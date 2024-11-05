@@ -180,7 +180,7 @@ public:
 
 class BlurShader : public Shader {
 public:
-	GLuint fboV, fboH, texV, texH;
+	GLuint fboV, fboH, fbo2D, texV, texH, tex2D;
 
 	BlurShader(const GLchar* vertexPath, const GLchar* fragmentPath) : Shader(vertexPath, fragmentPath) {}
 };

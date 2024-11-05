@@ -52,6 +52,8 @@
     <None Include="Shader\final.vs" />
     <None Include="Shader\fluidFinal.fs" />
     <None Include="Shader\fluidFinal.vs" />
+    <None Include="Shader\narrowDepth.fs" />
+    <None Include="Shader\narrowRangeFilter.fs" />
     <None Include="Shader\plane.fs" />
     <None Include="Shader\plane.vs" />
     <None Include="Shader\thickness.fs" />
