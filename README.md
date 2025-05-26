@@ -1,13 +1,25 @@
 ## 📑 목차
+- [📷 결과 영상](#-결과-영상)
 - [🧾 프로젝트 개요](#-프로젝트-개요)
 - [📆 개발 인원 및 기간](#-개발-인원-및-기간)
 - [🛠️ 주요 기능](#️-주요-기능)
 - [💻 사용 기술](#-사용-기술)
-- [📷 결과 영상](#-결과-영상)
 - [🏆 프로젝트 성과](#-프로젝트-성과)
 - [💡 프로젝트 회고](#-프로젝트-회고)
 - [🔖 관련 블로그 글](#-관련-블로그-글)
 - [📚 참고 자료](#-참고-자료)
+
+<br>
+
+## 📷 결과 영상
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2f08841d-e189-416a-8f85-b1072ee5a048" width="45%">
+  <img src="https://github.com/user-attachments/assets/0b2e2519-bb7e-4b6d-ab63-8fb9e0dbb24a" width="45%"><br>
+  <img src="https://github.com/user-attachments/assets/18ef9050-6f62-4fe2-a54c-091e91f8391c" width="45%">
+  <img src="https://github.com/user-attachments/assets/17057ed5-7f94-42b6-9cf6-49385a7a1aa6" width="45%">
+</p>
+
+[🔗 결과 영상 링크 (Youtube)](https://www.youtube.com/playlist?list=PLL7N-Nw3U-P3vHmnxfkImf6tOA4b5e9gY)
 
 <br>
 
@@ -45,18 +57,6 @@
 - Surface Turbulence
 - Screen-Space Fluid Rendering
 - Narrow-Range Filter for Screen-Space Fluid Rendering
-
-<br>
-
-## 📷 결과 영상
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2f08841d-e189-416a-8f85-b1072ee5a048" width="45%">
-  <img src="https://github.com/user-attachments/assets/0b2e2519-bb7e-4b6d-ab63-8fb9e0dbb24a" width="45%"><br>
-  <img src="https://github.com/user-attachments/assets/18ef9050-6f62-4fe2-a54c-091e91f8391c" width="45%">
-  <img src="https://github.com/user-attachments/assets/17057ed5-7f94-42b6-9cf6-49385a7a1aa6" width="45%">
-</p>
-
-[🔗 결과 영상 링크 (Youtube)](https://www.youtube.com/playlist?list=PLL7N-Nw3U-P3vHmnxfkImf6tOA4b5e9gY)
 
 <br>
 
