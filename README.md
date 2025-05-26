@@ -62,15 +62,17 @@
 
 ## 🏆 프로젝트 성과
 - 본 프로젝트를 바탕으로 **2024 한국컴퓨터그래픽스학회 학술대회 KCGS 2024**에 **제1저자 및 발표자**로 참가하였습니다.
-- 또한, **KCGS 2024 학부 우수논문상**을 수상하였습니다.
+- **KCGS 2024에서 학부 우수논문상**을 수상하였습니다.
 - 논문 제목: 유체-옷감의 상호작용에 의한 파동 난류, 확산, 주름을 표현하는 GPU 프레임워크
 - [🔗 논문 링크(DBpia)](https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE11866013)
 - [🔗 수상 링크(학회)](http://cg-korea.org/index.php?hCode=AWARD_02_03)
 
+<br>
+
 - 본 프로젝트를 바탕으로 **한국컴퓨터그래픽스학회 논문지 제31권 제1호**에 제1저자 논문을 작성하였습니다.
 - 논문 제목: 액체-옷감 상호작용에서 파동 난류, 확산 및 주름을 표현하기 위한 통합 GPU 프레임워크
-- [🔗 논문 링크(학회)](http://journal.cg-korea.org/archive/view_article?pid=jkcgs-31-1-25)
 - [🔗 논문 링크(DBpia)](https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE11866013)
+- [🔗 논문 링크(학회)](http://journal.cg-korea.org/archive/view_article?pid=jkcgs-31-1-25)
 
 <br>
 
