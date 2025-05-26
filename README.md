@@ -50,7 +50,7 @@
 
 ## 📷 결과 영상
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/0b2e2519-bb7e-4b6d-ab63-8fb9e0dbb24a" width="45%">
+  <img src="https://github.com/user-attachments/assets/2f08841d-e189-416a-8f85-b1072ee5a048" width="45%">
   <img src="https://github.com/user-attachments/assets/0b2e2519-bb7e-4b6d-ab63-8fb9e0dbb24a" width="45%"><br>
   <img src="https://github.com/user-attachments/assets/18ef9050-6f62-4fe2-a54c-091e91f8391c" width="45%">
   <img src="https://github.com/user-attachments/assets/17057ed5-7f94-42b6-9cf6-49385a7a1aa6" width="45%">
@@ -77,10 +77,13 @@
 <br>
 
 ## 💡 프로젝트 회고
-- 이 프로젝트를 통해 게임 개발에 활용되는 물리 기반 시뮬레이션의 개념과 구현 방식을 실제로 체험할 수 있었습니다.
-- 옷감 시뮬레이션은 단순한 시각 효과를 넘어, 캐릭터의 의상이나 환경의 상호작용 같은 게임 내 다양한 요소에 자연스러움을 부여하는 핵심 기술입니다.
-  특히 **Position-Based Dynamics 기법**과 **충돌 처리 및 자가 충돌(self-collision)** 구현 과정을 통해, 현실적인 움직임을 만드는 데 필요한 물리 제약 조건들을 어떻게 모델링하고 해결해야 하는지를 깊이 있게 이해할 수 있었습니다.
-- 이번 프로젝트를 통해 게임 클라이언트 개발자로서 **물리 기반 로직을 효과적으로 응용**하고, **실제 게임 콘텐츠의 몰입도를 높이는 방향**으로 기술을 적용할 수 있는 기반을 마련하게 되었습니다.
+- 이 프로젝트를 통해 게임 개발에 종종 활용되는 **유체 시뮬레이션 기술의 개념과 구현 방식**을 직접 체험할 수 있었습니다.  
+- 액체 시뮬레이션은 단순한 그래픽 효과를 넘어, **게임 내 물리 상호작용, 환경 반응, 연출 표현 등에서 몰입도를 높이는 핵심 요소**로 작용합니다.  
+  특히 **Fluid-Implicit Particle(FLIP) 기법**을 적용하여 입자 기반 시뮬레이션의 물리적 정확성을 확보하고,  
+  **파동 표현, 난류 효과, 충돌 처리** 등의 시각적 요소를 직접 구현하며 현실감 있는 액체 움직임을 표현하는 데 집중했습니다.  
+- 추가된 시각적 표현으로 인해 발생한 **성능 저하 문제를 해결**하기 위해, **GPU 병렬화 및 GLSL 쉐이더 최적화**를 적용하여 효율성을 개선했습니다.  
+- 이번 프로젝트를 통해 게임 클라이언트 개발자로서 **시뮬레이션부터 렌더링, 쉐이더 구현까지 그래픽스 파이프라인의 전체 흐름을 직접 설계 및 구현**해볼 수 있었고,  
+  **CUDA 기반의 병렬 연산 처리 경험**을 통해 **게임 엔진 구조와 실시간 시각 효과 기술 간의 연계 방식**에 대한 실질적인 이해도를 높일 수 있었습니다.
 
 <br>
 
@@ -91,19 +94,15 @@
   
 ## 📚 참고 자료
 
-### Position Based Dynamics
-- [Position Based Dynamics - Matthias Müller, Bruno Heidelberger, Marcus Hennix, John Ratcliff](https://matthias-research.github.io/pages/publications/posBasedDyn.pdf)
-
-### Self-Collision
-- [Cloth Self Collision with Predictive Contacts - Chris Lewin](https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc2018-chrislewin-clothselfcollisionwithpredictivecontacts.pdf)
+### FLIP
+- [Animating sand as a fluid - Yongning Zhu, Robert Bridson](https://www.cs.ubc.ca/~rbridson/docs/zhu-siggraph05-sandfluid.pdf)
 - https://matthias-research.github.io/pages/tenMinutePhysics/index.html
+  
+### Surface Turbulence
+- [Surface turbulence for particle-based liquid simulations - Olivier Mercier, Cynthia Beauchemin, Nils Thuerey, Theodore Kim, Derek Nowrouzezahrai ](https://cim.mcgill.ca/~derek/files/surfaceWaves.pdf)
 
-### Signed Distance Field
-- [Generating Signed Distance Fields From Triangle Meshes - J. Andreas Bærentzen and Henrik Aanæs](https://www2.imm.dtu.dk/pubdb/edoc/imm1289.pdf)
+### Screen Space Fluid Rendering 
+- [Screen Space Fluid Rendering for Games - Simon Green, NVIDIA](https://developer.download.nvidia.com/presentations/2010/gdc/Direct3D_Effects.pdf)
+- [A Narrow-Range Filter for Screen-Space Fluid Rendering - Nghia Truong, Cem Yuksel](https://ttnghia.github.io/pdf/NarrowRangeFilter.pdf)
 
-### Collision Response
-- [Simulation of Clothing with Folds and Wrinkles - R. Bridson, S. Marino, R. Fedkiw](http://physbam.stanford.edu/~fedkiw/papers/stanford2003-06.pdf)
-- [Robust High-Resolution Cloth Using Parallelism, History-Based Collisions and Accurate Friction - Andrew Selle et al.](http://physbam.stanford.edu/~fedkiw/papers/stanford2007-06.pdf)
 
-### Collision Detection
-- [Local Optimization for Robust Signed Distance Field Collision - Miles Macklin et al.](https://mmacklin.com/sdfcontact.pdf)
