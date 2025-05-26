@@ -16,7 +16,7 @@
   <img src="https://github.com/user-attachments/assets/2f08841d-e189-416a-8f85-b1072ee5a048" width="45%">
   <img src="https://github.com/user-attachments/assets/e640debd-3df4-4fcb-bdf4-67e81b74cbf2" width="45%"><br>
   <img src="https://github.com/user-attachments/assets/18ef9050-6f62-4fe2-a54c-091e91f8391c" width="45%">
-  <img src="https://github.com/user-attachments/assets/17057ed5-7f94-42b6-9cf6-49385a7a1aa6" width="45%">
+  <img src="https://github.com/user-attachments/assets/f14924c7-f1f1-4827-8cfb-fc15ea20f898" width="45%">
 </p>
 
 [🔗 결과 영상 링크 (Youtube)](https://www.youtube.com/playlist?list=PLL7N-Nw3U-P3vHmnxfkImf6tOA4b5e9gY)
